@@ -348,6 +348,7 @@ def load_config(
         or int(preset_settings["vad_sensitivity"]),
         ollama_model=os.getenv("LMC_OLLAMA_MODEL", "qwen2.5:3b-instruct"),
         ollama_host=os.getenv("LMC_OLLAMA_HOST", "http://127.0.0.1:11434"),
+        ollama_timeout_seconds=_optional_float(os.getenv("LMC_OLLAMA_TIMEOUT_SECONDS")) or 60.0,
         context_window_size=_optional_int(os.getenv("LMC_CONTEXT_WINDOW_SIZE"))
         or int(preset_settings["context_window_size"]),
         translation_num_predict=_optional_int(os.getenv("LMC_TRANSLATION_NUM_PREDICT"))
@@ -566,6 +567,12 @@ def _optional_int(value: str | None) -> int | None:
     if value in (None, ""):
         return None
     return int(value)
+
+
+def _optional_float(value: str | None) -> float | None:
+    if value in (None, ""):
+        return None
+    return float(value)
 
 
 def _optional_language(value: str | None) -> str | None:

@@ -31,7 +31,10 @@ Return Markdown only, with exactly these sections:
 class LLMRefiner:
     def __init__(self, config: AppConfig | None = None) -> None:
         self.config = config or load_config()
-        self.client = ollama.AsyncClient(host=self.config.ollama_host)
+        self.client = ollama.AsyncClient(
+            host=self.config.ollama_host,
+            timeout=self.config.ollama_timeout_seconds,
+        )
 
     async def refine_and_translate(
         self,

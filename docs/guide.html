@@ -287,6 +287,7 @@ python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
           <p>Optional Silero VAD is used automatically when installed; otherwise the built-in energy VAD remains active.</p>
           <pre><code>python -m pip install -r requirements-vad.txt
 export LMC_VAD_MODE=auto</code></pre>
+          <p>If Ollama requests hang or app shutdown feels too slow, set <code>LMC_OLLAMA_TIMEOUT_SECONDS=20</code>.</p>
         </div>
         <div class="lang">
           <div class="lang-title">中文</div>
@@ -299,6 +300,7 @@ export LMC_VAD_MODE=auto</code></pre>
           <p>如果安装了 Silero VAD，默认会自动使用；没有安装时会继续使用内置 energy VAD。</p>
           <pre><code>python -m pip install -r requirements-vad.txt
 export LMC_VAD_MODE=auto</code></pre>
+          <p>如果 Ollama 请求卡住，或者退出时等待太久，可以设置 <code>LMC_OLLAMA_TIMEOUT_SECONDS=20</code>。</p>
         </div>
       </div>
     </section>

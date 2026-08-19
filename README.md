@@ -111,6 +111,12 @@ You can also set a default profile through the environment:
 export LMC_MEETING_PROFILE=de
 ```
 
+If Ollama requests hang or app shutdown feels too slow, lower the local request timeout:
+
+```bash
+export LMC_OLLAMA_TIMEOUT_SECONDS=20
+```
+
 Useful command-line combinations:
 
 ```bash
@@ -358,6 +364,12 @@ python run.py --mac-live --profile de-en --preset fast --style meeting
 
 ```bash
 export LMC_MEETING_PROFILE=de
+```
+
+如果 Ollama 请求卡住，或者退出时等待太久，可以调低本地请求超时：
+
+```bash
+export LMC_OLLAMA_TIMEOUT_SECONDS=20
 ```
 
 常用命令组合：

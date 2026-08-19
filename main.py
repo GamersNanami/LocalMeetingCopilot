@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import platform
+import signal
 import subprocess
 import sys
 import time
@@ -56,6 +57,7 @@ def _safe_emit(signal: object, *args: object) -> None:
 class TranslationTask(QRunnable):
     def __init__(self, config: AppConfig, draft: TranscriptDraft, context_history: list[str]) -> None:
         super().__init__()
+        self.setAutoDelete(False)
         self.config = config
         self.draft = draft
         self.context_history = context_history
@@ -100,6 +102,7 @@ class TranslationTask(QRunnable):
 class SummaryTask(QRunnable):
     def __init__(self, config: AppConfig, transcript_markdown: str) -> None:
         super().__init__()
+        self.setAutoDelete(False)
         self.config = config
         self.transcript_markdown = transcript_markdown
         self.signals = WorkerSignals()
@@ -118,6 +121,7 @@ class SummaryTask(QRunnable):
 class WavTranscriptionTask(QRunnable):
     def __init__(self, config: AppConfig, asr_engine: ASREngine, wav_path: Path) -> None:
         super().__init__()
+        self.setAutoDelete(False)
         self.config = config
         self.asr_engine = asr_engine
         self.wav_path = wav_path
@@ -141,6 +145,7 @@ class WavTranscriptionTask(QRunnable):
 class AudioTranscriptionTask(QRunnable):
     def __init__(self, config: AppConfig, asr_engine: ASREngine, draft: TranscriptDraft) -> None:
         super().__init__()
+        self.setAutoDelete(False)
         self.config = config
         self.asr_engine = asr_engine
         self.draft = draft
@@ -174,6 +179,7 @@ class AudioTranscriptionTask(QRunnable):
 class PartialTranscriptionTask(QRunnable):
     def __init__(self, config: AppConfig, asr_engine: ASREngine, draft: TranscriptDraft) -> None:
         super().__init__()
+        self.setAutoDelete(False)
         self.config = config
         self.asr_engine = asr_engine
         self.draft = draft
@@ -212,6 +218,7 @@ class MeetingAppController(QObject):
         )
         _apply_runtime_arg_overrides(self.config, args)
         self.thread_pool = QThreadPool.globalInstance()
+        self._active_tasks: list[QRunnable] = []
         self.summarizer = MeetingSummarizer(self.config)
         self.asr_engine = ASREngine(self.config)
         self.audio_engine: AudioEngine | None = None
@@ -226,6 +233,7 @@ class MeetingAppController(QObject):
         self._auto_summary_pending = False
         self._auto_export_after_summary = False
         self._suppress_audio_finished_auto_summary = False
+        self._shutting_down = False
         self._merge_buffer: TranscriptDraft | None = None
         self._merge_timer = QTimer(self)
         self._merge_timer.setSingleShot(True)
@@ -242,6 +250,9 @@ class MeetingAppController(QObject):
         self.dashboard.summary_requested.connect(self.generate_summary)
         self.dashboard.settings_changed.connect(self._on_dashboard_settings_changed)
         self.dashboard.speaker_rename_requested.connect(self._on_speaker_rename_requested)
+        app = QApplication.instance()
+        if app is not None:
+            app.aboutToQuit.connect(self.shutdown)
 
     def show(self) -> None:
         self.dashboard.show()
@@ -324,6 +335,8 @@ class MeetingAppController(QObject):
         self._start_summary_task(auto_export=False, show_local_preview=False)
 
     def _start_summary_task(self, *, auto_export: bool, show_local_preview: bool) -> None:
+        if self._shutting_down:
+            return
         transcript = self.summarizer.transcript_markdown(limit_chars=self.config.summary_max_transcript_chars)
         self._auto_export_after_summary = auto_export
         if show_local_preview:
@@ -336,15 +349,17 @@ class MeetingAppController(QObject):
         task.signals.report_ready.connect(self._on_summary_ready)
         task.signals.error.connect(self._set_status)
         task.signals.finished.connect(lambda: self.dashboard.set_summary_running(False))
-        self.thread_pool.start(task)
+        self._start_task(task)
 
     def _start_wav(self, wav_path: Path) -> None:
+        if self._shutting_down:
+            return
         task = WavTranscriptionTask(self.config, self.asr_engine, wav_path)
         task.signals.status.connect(self._set_status)
         task.signals.draft_ready.connect(self._on_draft)
         task.signals.error.connect(self._set_status)
         task.signals.finished.connect(self._on_wav_finished)
-        self.thread_pool.start(task)
+        self._start_task(task)
 
     @Slot(str, str)
     def _on_preview(self, speaker: str, text: str) -> None:
@@ -353,6 +368,8 @@ class MeetingAppController(QObject):
 
     @Slot(object)
     def _on_partial_draft(self, draft: TranscriptDraft) -> None:
+        if self._shutting_down:
+            return
         self._apply_speaker_alias(draft)
         if draft.track_type in self._partial_busy_tracks:
             return
@@ -361,10 +378,12 @@ class MeetingAppController(QObject):
         task.signals.draft_ready.connect(self._on_partial_text)
         task.signals.error.connect(self._set_status)
         task.signals.finished.connect(lambda track=draft.track_type: self._partial_busy_tracks.discard(track))
-        self.thread_pool.start(task)
+        self._start_task(task)
 
     @Slot(object)
     def _on_partial_text(self, draft: TranscriptDraft) -> None:
+        if self._shutting_down:
+            return
         self._apply_speaker_alias(draft)
         preview = f"{draft.text.strip()} ..."
         self.overlay.update_preview(draft.speaker, preview)
@@ -372,6 +391,8 @@ class MeetingAppController(QObject):
 
     @Slot(object)
     def _on_draft(self, draft: TranscriptDraft) -> None:
+        if self._shutting_down:
+            return
         self._apply_speaker_alias(draft)
         if not draft.text.strip() and draft.audio_data is not None:
             self._start_audio_transcription(draft)
@@ -383,6 +404,8 @@ class MeetingAppController(QObject):
         self._enqueue_translation(draft)
 
     def _enqueue_translation(self, draft: TranscriptDraft) -> None:
+        if self._shutting_down:
+            return
         if self._should_merge_short_sentence(draft):
             self._merge_or_hold(draft)
             return
@@ -395,6 +418,8 @@ class MeetingAppController(QObject):
         self._drain_translation_queue()
 
     def _enqueue_translation_now(self, draft: TranscriptDraft) -> None:
+        if self._shutting_down:
+            return
         if len(self._translation_queue) >= self.config.translation_queue_limit:
             dropped = self._translation_queue.popleft()
             self._set_status(f"Translation queue full; dropped oldest [{dropped.speaker}] sentence")
@@ -403,6 +428,8 @@ class MeetingAppController(QObject):
         self._drain_translation_queue()
 
     def _drain_translation_queue(self) -> None:
+        if self._shutting_down:
+            return
         if self._translation_busy or not self._translation_queue:
             return
         draft = self._translation_queue.popleft()
@@ -419,16 +446,52 @@ class MeetingAppController(QObject):
         task.signals.translation_ready.connect(self._on_translation)
         task.signals.error.connect(self._set_status)
         task.signals.finished.connect(self._on_translation_finished)
-        self.thread_pool.start(task)
+        self._start_task(task)
 
     def _start_audio_transcription(self, draft: TranscriptDraft) -> None:
+        if self._shutting_down:
+            return
         self._asr_busy_count += 1
         task = AudioTranscriptionTask(self.config, self.asr_engine, draft)
         task.signals.status.connect(self._set_status)
         task.signals.draft_ready.connect(self._on_draft)
         task.signals.error.connect(self._set_status)
         task.signals.finished.connect(self._on_asr_finished)
+        self._start_task(task)
+
+    def _start_task(self, task: QRunnable) -> None:
+        if self._shutting_down:
+            return
+        self._active_tasks.append(task)
+        signals = getattr(task, "signals", None)
+        if signals is not None:
+            signals.finished.connect(lambda task=task: self._release_task(task))
         self.thread_pool.start(task)
+
+    @Slot()
+    def shutdown(self) -> None:
+        if self._shutting_down:
+            return
+        self._shutting_down = True
+        if self.audio_engine:
+            self._suppress_audio_finished_auto_summary = True
+            self.audio_engine.stop()
+            self.audio_engine = None
+            self._suppress_audio_finished_auto_summary = False
+        self._merge_timer.stop()
+        self._translation_queue.clear()
+        self._auto_summary_pending = False
+        self.thread_pool.clear()
+        self.thread_pool.waitForDone()
+        app = QApplication.instance()
+        if app is not None:
+            app.processEvents()
+
+    def _release_task(self, task: QRunnable) -> None:
+        try:
+            self._active_tasks.remove(task)
+        except ValueError:
+            pass
 
     @Slot(object, str)
     def _on_translation_delta(self, draft: TranscriptDraft, translated_partial: str) -> None:
@@ -439,6 +502,8 @@ class MeetingAppController(QObject):
 
     @Slot(object, str)
     def _on_translation(self, draft: TranscriptDraft, translated: str) -> None:
+        if self._shutting_down:
+            return
         entry = TranscriptEntry(
             speaker=draft.speaker,
             original_text=draft.text,
@@ -463,16 +528,22 @@ class MeetingAppController(QObject):
     @Slot()
     def _on_translation_finished(self) -> None:
         self._translation_busy = False
+        if self._shutting_down:
+            return
         self._drain_translation_queue()
         self._maybe_start_pending_auto_summary()
 
     @Slot()
     def _on_asr_finished(self) -> None:
         self._asr_busy_count = max(0, self._asr_busy_count - 1)
+        if self._shutting_down:
+            return
         self._maybe_start_pending_auto_summary()
 
     @Slot(str)
     def _on_summary_ready(self, report: str) -> None:
+        if self._shutting_down:
+            return
         self._latest_ai_summary = report
         markdown = self.summarizer.build_markdown_report(ai_summary=report)
         if self._auto_export_after_summary and not self.config.privacy_mode and self.config.save_reports_enabled:
@@ -537,6 +608,8 @@ class MeetingAppController(QObject):
     def _on_audio_finished(self) -> None:
         self._running_source = False
         self.dashboard.set_running_state(False)
+        if self._shutting_down:
+            return
         if "windows-only" in self._last_status.lower() or "not enabled" in self._last_status.lower():
             return
         if self._suppress_audio_finished_auto_summary:
@@ -552,6 +625,8 @@ class MeetingAppController(QObject):
     def _on_wav_finished(self) -> None:
         self._running_source = False
         self.dashboard.set_running_state(False)
+        if self._shutting_down:
+            return
         if self.config.auto_summary_on_end:
             self._auto_summary_pending = True
             self._auto_export_after_summary = self.config.auto_export_on_end
@@ -591,6 +666,9 @@ class MeetingAppController(QObject):
 
     @Slot()
     def _flush_merge_buffer(self) -> None:
+        if self._shutting_down:
+            self._merge_buffer = None
+            return
         if self._merge_buffer is None:
             return
         draft = self._merge_buffer
@@ -598,6 +676,8 @@ class MeetingAppController(QObject):
         self._enqueue_translation_now(draft)
 
     def _maybe_start_pending_auto_summary(self) -> None:
+        if self._shutting_down:
+            return
         if not self._auto_summary_pending:
             return
         if self._merge_buffer is not None:
@@ -771,6 +851,13 @@ def run_app(args: argparse.Namespace) -> int:
     _apply_runtime_arg_overrides(config, args)
     app = QApplication([sys.argv[0]])
     app.setApplicationName(config.app_name)
+
+    def request_quit(_signum: int, _frame: object) -> None:
+        QTimer.singleShot(0, app.quit)
+
+    signal.signal(signal.SIGINT, request_quit)
+    signal.signal(signal.SIGTERM, request_quit)
+
     controller = MeetingAppController(args, config)
     app.setProperty("meeting_controller", controller)
     controller.show()
