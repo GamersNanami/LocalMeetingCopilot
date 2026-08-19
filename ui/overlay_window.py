@@ -85,6 +85,11 @@ class SubtitleOverlay(QWidget):
         self.original_label.setText(entry.original_text)
         self.translation_label.setText(entry.chinese_translation)
 
+    def update_translation_partial(self, speaker: str, original_text: str, translated_partial: str) -> None:
+        self.speaker_label.setText(f"[{speaker}] translating")
+        self.original_label.setText(original_text or "...")
+        self.translation_label.setText(translated_partial or "...")
+
     def set_status(self, message: str) -> None:
         self.speaker_label.setText("[Status]")
         self.original_label.setText(message)

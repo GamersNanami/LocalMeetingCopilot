@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QPushButton,
+    QSlider,
     QSplitter,
     QTextEdit,
     QVBoxLayout,
@@ -137,6 +138,11 @@ class MeetingDashboard(QMainWindow):
         self.save_reports_check = QCheckBox("Save reports")
         self.privacy_check = QCheckBox("Privacy")
         self.debug_audio_check = QCheckBox("Debug WAV")
+        self.auto_summary_check = QCheckBox("Auto summary on End")
+        self.vad_sensitivity_slider = QSlider(Qt.Orientation.Horizontal)
+        self.vad_sensitivity_slider.setRange(0, 100)
+        self.vad_sensitivity_slider.setSingleStep(5)
+        self.vad_sensitivity_label = QLabel("85")
         self.refresh_devices_button = QPushButton("Refresh Devices")
         self.refresh_devices_button.clicked.connect(lambda: self.refresh_audio_devices())
         self._wire_settings_signals()
@@ -159,6 +165,11 @@ class MeetingDashboard(QMainWindow):
         privacy_row.addWidget(self.privacy_check)
         privacy_row.addWidget(self.debug_audio_check)
         settings_layout.addRow("Storage", privacy_row)
+        settings_layout.addRow("End", self.auto_summary_check)
+        vad_row = QHBoxLayout()
+        vad_row.addWidget(self.vad_sensitivity_slider, 1)
+        vad_row.addWidget(self.vad_sensitivity_label)
+        settings_layout.addRow("VAD Sensitivity", vad_row)
         settings_layout.addRow("", self.refresh_devices_button)
 
         right = QWidget()
@@ -256,6 +267,11 @@ class MeetingDashboard(QMainWindow):
     def set_preview(self, speaker: str, text: str) -> None:
         self.preview_label.setText(f"[{speaker}] {text}")
 
+    def set_translation_preview(self, speaker: str, original_text: str, translated_partial: str) -> None:
+        self.preview_label.setText(
+            f"[{speaker}] {original_text}\n中文: {translated_partial}"
+        )
+
     def set_report(self, markdown: str, path: Path | None = None) -> None:
         heading = f"Saved to {path}\n\n" if path else ""
         self.report_view.setPlainText(heading + markdown)
@@ -329,8 +345,10 @@ class MeetingDashboard(QMainWindow):
             self.save_reports_check,
             self.privacy_check,
             self.debug_audio_check,
+            self.auto_summary_check,
         ):
             check.blockSignals(True)
+        self.vad_sensitivity_slider.blockSignals(True)
 
         self._select_combo_value(self.profile_combo, self.config.meeting_profile)
         self._select_combo_value(self.preset_combo, self.config.model_preset)
@@ -342,6 +360,9 @@ class MeetingDashboard(QMainWindow):
         self.save_reports_check.setChecked(self.config.save_reports_enabled)
         self.privacy_check.setChecked(self.config.privacy_mode)
         self.debug_audio_check.setChecked(self.config.debug_audio_enabled)
+        self.auto_summary_check.setChecked(self.config.auto_summary_on_end)
+        self.vad_sensitivity_slider.setValue(self.config.vad_sensitivity)
+        self._update_vad_sensitivity_label(self.config.vad_sensitivity)
         self.model_label.setText(
             f"Ollama: {self.config.ollama_model} | Profile: {self.config.meeting_profile} | Preset: {self.config.model_preset}"
         )
@@ -354,8 +375,10 @@ class MeetingDashboard(QMainWindow):
             self.save_reports_check,
             self.privacy_check,
             self.debug_audio_check,
+            self.auto_summary_check,
         ):
             check.blockSignals(False)
+        self.vad_sensitivity_slider.blockSignals(False)
         if emit:
             self._emit_settings_changed()
 
@@ -374,8 +397,10 @@ class MeetingDashboard(QMainWindow):
             self.save_reports_check,
             self.privacy_check,
             self.debug_audio_check,
+            self.auto_summary_check,
         ):
             check.toggled.connect(self._emit_settings_changed)
+        self.vad_sensitivity_slider.valueChanged.connect(self._on_vad_sensitivity_changed)
 
     def _emit_settings_changed(self) -> None:
         self.settings_changed.emit(
@@ -390,8 +415,17 @@ class MeetingDashboard(QMainWindow):
                 "save_reports_enabled": self.save_reports_check.isChecked(),
                 "privacy_mode": self.privacy_check.isChecked(),
                 "debug_audio_enabled": self.debug_audio_check.isChecked(),
+                "auto_summary_on_end": self.auto_summary_check.isChecked(),
+                "vad_sensitivity": self.vad_sensitivity_slider.value(),
             }
         )
+
+    def _on_vad_sensitivity_changed(self, value: int) -> None:
+        self._update_vad_sensitivity_label(value)
+        self._emit_settings_changed()
+
+    def _update_vad_sensitivity_label(self, value: int) -> None:
+        self.vad_sensitivity_label.setText(str(value))
 
     def _sync_speaker_editor(self) -> None:
         item = self.history_list.currentItem()

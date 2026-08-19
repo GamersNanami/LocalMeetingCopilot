@@ -250,6 +250,7 @@ python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
             <li><code>Style</code>: literal, meeting-note, or natural Chinese.</li>
             <li>Choose mic and remote input devices before pressing Start.</li>
             <li>Toggle mic/remote tracks, report saving, privacy mode, and debug WAV.</li>
+            <li>Enable auto summary on End and tune <code>VAD Sensitivity</code> for faster or safer cuts.</li>
             <li>Latency shows ASR, LLM, and total time per translated sentence.</li>
             <li>Select a transcript row to rename <code>Remote Participant</code>; the alias is remembered for future speech.</li>
             <li>Runtime choices are saved to local <code>settings.json</code> and restored on the next launch.</li>
@@ -263,6 +264,7 @@ python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
             <li><code>Style</code>：精准直译、会议纪要风、自然中文。</li>
             <li>建议点击 Start 前先选好麦克风和远端输入设备。</li>
             <li>可以开关本地/远端轨道、报告保存、隐私模式和 debug WAV。</li>
+            <li>可以开启 End 后自动总结，并用 <code>VAD Sensitivity</code> 调整断句灵敏度。</li>
             <li>延迟诊断会显示每句话的 ASR、LLM 和总耗时。</li>
             <li>选中逐字稿后可以把 <code>Remote Participant</code> 改成真实姓名，后续会自动记住。</li>
             <li>运行时选择会保存到本地 <code>settings.json</code>，下次启动自动恢复。</li>
@@ -278,7 +280,8 @@ python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
           <div class="lang-title">English</div>
           <p>Use <code>--profile de</code> for mostly German meetings. It forces German ASR, injects German business vocabulary, and reduces multilingual hallucinations.</p>
           <pre><code>python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
-          <p>Partial subtitles show temporary ASR text while someone is speaking. Final subtitles are translated after the sentence is cut and refined. German clause fragments around <code>weil</code>, <code>dass</code>, <code>wenn</code>, and <code>obwohl</code> are held briefly for cleaner translations.</p>
+          <p>Partial subtitles show temporary ASR text while someone is speaking. Final subtitles are translated after the sentence is cut and refined. Chinese translation streams into the overlay while Ollama is still generating.</p>
+          <p>When the meeting ends, the dashboard shows an instant local summary preview first, then replaces it with the Ollama-refined summary. German clause fragments around <code>weil</code>, <code>dass</code>, <code>wenn</code>, and <code>obwohl</code> are held briefly for cleaner translations.</p>
           <p>Add names, company terms, project names, and acronyms to:</p>
           <pre><code>profiles/custom_terms.txt</code></pre>
           <p>Optional Silero VAD is used automatically when installed; otherwise the built-in energy VAD remains active.</p>
@@ -289,7 +292,8 @@ export LMC_VAD_MODE=auto</code></pre>
           <div class="lang-title">中文</div>
           <p>德语会议优先使用 <code>--profile de</code>。它会强制德语 ASR，注入德语业务词表，并减少多语言幻听。</p>
           <pre><code>python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
-          <p>说话中会先显示 partial 临时字幕，完整句切好后再进入精修翻译。遇到 <code>weil</code>、<code>dass</code>、<code>wenn</code>、<code>obwohl</code> 等德语从句片段时，会短暂等待上下文以改善中文翻译。</p>
+          <p>说话中会先显示 partial 临时字幕，完整句切好后再进入精修翻译。Ollama 生成中文时会流式更新到悬浮窗。</p>
+          <p>会议结束后，Dashboard 会先显示本地规则 summary，再用 Ollama 精修版替换。遇到 <code>weil</code>、<code>dass</code>、<code>wenn</code>、<code>obwohl</code> 等德语从句片段时，会短暂等待上下文以改善中文翻译。</p>
           <p>人名、公司名、项目名、缩写放到这里：</p>
           <pre><code>profiles/custom_terms.txt</code></pre>
           <p>如果安装了 Silero VAD，默认会自动使用；没有安装时会继续使用内置 energy VAD。</p>

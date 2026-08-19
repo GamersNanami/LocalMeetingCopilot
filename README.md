@@ -70,6 +70,8 @@ The dashboard control panel now exposes the most useful runtime switches:
 - Mic and Remote input device selectors.
 - Track toggles for local mic and remote audio.
 - Storage toggles for report export, privacy mode, and debug WAV chunks.
+- Auto summary on End.
+- VAD sensitivity slider for more aggressive or more conservative sentence cuts.
 - Latency diagnostics showing ASR, LLM, and total time per translated sentence.
 - Speaker correction: select a transcript row, rename `Remote Participant`, and apply it to future matching speech.
 - Runtime settings are saved to `settings.json` and restored on the next launch.
@@ -87,6 +89,8 @@ The Whisper model is a single multilingual model, so unsupported languages canno
 - If the retry still reports an unsupported language, that sentence is dropped instead of being translated.
 - Realtime VAD is tuned for lower latency with a shorter silence cutoff.
 - Partial subtitles show temporary ASR text while someone is still speaking; the final sentence is translated after the VAD cut.
+- Chinese translation streams into the overlay while Ollama is still generating, so the UI no longer waits for the full response.
+- Ending a meeting automatically shows a local summary preview, then replaces it with the Ollama-refined summary when ready.
 - German clause fragments are held briefly and merged when possible, especially around `weil`, `dass`, `wenn`, and `obwohl`.
 
 For mostly German meetings, use:
@@ -119,9 +123,9 @@ python run.py --mac-live --profile de --no-remote-track
 
 Preset meaning:
 
-- `fast`: base Whisper, lower VAD silence, best for live subtitles.
-- `balanced`: small Whisper, slightly slower but more accurate.
-- `accurate`: medium Whisper and wider beam, best for WAV/offline or strong machines.
+- `fast`: base Whisper, high VAD sensitivity, shorter context, streaming-first translation.
+- `balanced`: small Whisper, medium VAD sensitivity, slightly slower but more accurate.
+- `accurate`: medium Whisper, lower VAD sensitivity, wider beam, best for WAV/offline or strong machines.
 
 Translation style meaning:
 
@@ -155,15 +159,17 @@ The startup status shows the real backend as `VAD: silero` or `VAD: energy`.
 - Dashboard with transcript history, search, meeting controls, and report export.
 - Ollama translation using `qwen2.5:3b-instruct`.
 - Single-lane translation queue so Ollama responses remain ordered.
-- Ollama post-meeting summary generation.
+- Auto summary on End with instant local preview and Ollama refinement.
 - Transcript filters for all speakers, [Me], remote speakers, and task-like entries.
 - Dashboard controls for profile, preset, style, devices, tracks, privacy, and debug audio.
+- Dashboard VAD sensitivity control.
 - Saved runtime settings through local `settings.json`.
 - Speaker correction and future speaker alias memory in the dashboard.
 - Latency diagnostics for ASR, LLM, and total sentence time.
 - Custom vocabulary injection through `profiles/custom_terms.txt`.
 - Common ASR hallucination phrase filtering.
 - Partial subtitles during active speech, followed by final translated subtitles.
+- Streaming Chinese translation updates while Ollama is generating.
 - Short-sentence and German clause merge buffers for more natural translations.
 - Mock meeting mode for local UI and translation testing.
 - Local microphone capture with Silero/energy VAD sentence segmentation.
@@ -313,6 +319,8 @@ Dashboard 现在可以直接配置常用运行参数：
 - Mic 和 Remote 输入设备选择。
 - 本地麦克风轨道和远端音频轨道开关。
 - 报告保存、隐私模式、debug WAV 开关。
+- End 后自动总结开关。
+- VAD sensitivity 滑条，可以调更灵敏或更保守的断句。
 - 每句话的 ASR、LLM、总延迟显示。
 - 说话人修正：选中逐字稿行，把 `Remote Participant` 改成真实姓名，后续相同说话人会自动沿用。
 - 运行时设置会保存到 `settings.json`，下次启动自动恢复。
@@ -330,6 +338,8 @@ Whisper 是一个整体的多语言模型，不能像“语言包”一样删除
 - 如果 ASR 最终仍识别成不支持的语言，这句话会被丢弃，不进入翻译队列。
 - 实时 VAD 已调低静音切句时间，尽量减少“说完后等字幕”的体感延迟。
 - 说话中会显示 partial 临时字幕；完整句切好以后再进入精修翻译。
+- Ollama 生成中文时会流式更新到悬浮窗，不再等整段响应完成才显示。
+- 会议结束后会先显示本地规则 summary，随后用 Ollama 精修版替换。
 - 德语从句片段会短暂等待并尝试合并，重点处理 `weil`、`dass`、`wenn`、`obwohl` 等结构。
 
 德语会议推荐：
@@ -362,9 +372,9 @@ python run.py --mac-live --profile de --no-remote-track
 
 Preset 含义：
 
-- `fast`：base Whisper，较低静音等待，最适合实时字幕。
-- `balanced`：small Whisper，稍慢但更准。
-- `accurate`：medium Whisper 和更宽 beam，更适合 WAV/offline 或性能较强的机器。
+- `fast`：base Whisper，高 VAD 灵敏度、较短上下文、优先流式翻译，最适合实时字幕。
+- `balanced`：small Whisper，中等 VAD 灵敏度，稍慢但更准。
+- `accurate`：medium Whisper，较保守断句和更宽 beam，更适合 WAV/offline 或性能较强的机器。
 
 翻译风格：
 
@@ -400,15 +410,17 @@ python run.py --mac-live --profile de
 - Dashboard 逐字稿历史、搜索、控制、总结、导出。
 - Ollama 本地翻译，默认模型 `qwen2.5:3b-instruct`。
 - 单通道翻译队列，保证 Ollama 输出顺序。
-- Ollama 会后总结。
+- End 后自动总结：先出本地预览，再用 Ollama 精修。
 - `[Me]`、Remote、Tasks 等过滤。
 - Profile、Preset、Style、设备、轨道、隐私、debug 音频控制。
+- Dashboard VAD 灵敏度控制。
 - 通过本地 `settings.json` 保存运行时设置。
 - Dashboard 里修正说话人，并记住后续同名发言。
 - ASR/LLM/总耗时延迟诊断。
 - 自定义词库注入。
 - 常见 ASR 幻听短语过滤。
 - 说话中的 partial 临时字幕，完整句结束后再显示精修翻译。
+- Ollama 生成中文时流式更新字幕。
 - 短句和德语从句合并缓冲，让德语碎句翻译更自然。
 - macOS 本地实验模式。
 - Windows 本地 mic + WASAPI loopback 真实会议模式。

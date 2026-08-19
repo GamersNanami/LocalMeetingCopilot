@@ -409,6 +409,7 @@ class AudioEngine(QObject):
         self.config = config or load_config()
         self.mode = mode
         self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._emit_next_mock_line)
         self._mic_timer = QTimer(self)
         self._mic_timer.setInterval(40)
@@ -479,6 +480,8 @@ class AudioEngine(QObject):
         if not self._running:
             return
         if self._script_index >= len(MOCK_SCRIPT):
+            self._running = False
+            self._timer.stop()
             self.status_changed.emit("Mock meeting finished")
             self.finished.emit()
             return

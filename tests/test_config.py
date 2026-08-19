@@ -1,6 +1,7 @@
 from config import (
     AppConfig,
     apply_model_preset,
+    apply_vad_sensitivity,
     load_config,
     load_runtime_settings,
     normalise_meeting_profile,
@@ -48,6 +49,19 @@ def test_model_preset_updates_asr_settings() -> None:
     assert config.model_preset == "accurate"
     assert config.asr_model_size == "medium"
     assert config.asr_beam_size == 3
+    assert config.context_window_size == 8
+    assert config.translation_num_predict == 256
+    assert config.vad_sensitivity == 40
+
+
+def test_vad_sensitivity_updates_latency_controls() -> None:
+    config = AppConfig()
+
+    apply_vad_sensitivity(config, 90)
+
+    assert config.vad_sensitivity == 90
+    assert config.vad_silence_ms <= 350
+    assert config.partial_interval_ms <= 800
 
 
 def test_translation_style_validation() -> None:
@@ -68,6 +82,7 @@ def test_runtime_settings_roundtrip(tmp_path) -> None:
         mic_device_index=2,
         remote_device_index=4,
         privacy_mode=True,
+        auto_summary_on_end=False,
         speaker_aliases={"Remote Participant": "Anna Schmidt"},
     )
 
@@ -80,6 +95,7 @@ def test_runtime_settings_roundtrip(tmp_path) -> None:
     assert loaded["mic_device_index"] == 2
     assert loaded["remote_device_index"] == 4
     assert loaded["privacy_mode"] is True
+    assert loaded["auto_summary_on_end"] is False
     assert loaded["speaker_aliases"] == {"Remote Participant": "Anna Schmidt"}
 
 

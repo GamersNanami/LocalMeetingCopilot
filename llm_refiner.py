@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import ollama
 
@@ -13,6 +13,11 @@ Special Rule: If the source language is German, handle Nebensatz / Rahmenkonstru
 For German fragments with weil/dass/wenn/obwohl/damit/waehrend/bevor/nachdem/ob, infer the main-clause relationship from recent context before translating.
 Preserve negation, modal verbs, deadlines, owners, dependencies, and business risk language exactly.
 Return ONLY the final Chinese translation without explanations or conversational filler."""
+
+TRANSLATOR_FAST_SYSTEM_PROMPT = """Translate German/English business meeting speech into concise Simplified Chinese.
+For German, fix subordinate-clause order naturally before translating.
+Preserve negation, owner, deadline, risk, and decision intent.
+Return ONLY Chinese."""
 
 SUMMARY_SYSTEM_PROMPT = """You are a meticulous bilingual meeting analyst.
 Create a concise Simplified Chinese meeting report from the transcript.
@@ -34,28 +39,95 @@ class LLMRefiner:
         context_history: Sequence[str] | None = None,
         language_code: str = "auto",
     ) -> str:
+        return await self._translate(
+            original_text=original_text,
+            context_history=context_history,
+            language_code=language_code,
+            stream=False,
+        )
+
+    async def refine_and_translate_stream(
+        self,
+        original_text: str,
+        context_history: Sequence[str] | None = None,
+        language_code: str = "auto",
+        on_partial: Callable[[str], None] | None = None,
+    ) -> str:
+        return await self._translate(
+            original_text=original_text,
+            context_history=context_history,
+            language_code=language_code,
+            stream=True,
+            on_partial=on_partial,
+        )
+
+    async def _translate(
+        self,
+        *,
+        original_text: str,
+        context_history: Sequence[str] | None,
+        language_code: str,
+        stream: bool,
+        on_partial: Callable[[str], None] | None = None,
+    ) -> str:
         text = original_text.strip()
         if not text:
             return ""
 
         context = "\n".join((context_history or [])[-self.config.context_window_size :])
+        base_system_prompt = (
+            TRANSLATOR_FAST_SYSTEM_PROMPT
+            if self.config.model_preset == "fast"
+            else TRANSLATOR_SYSTEM_PROMPT
+        )
         system_prompt = (
-            f"{TRANSLATOR_SYSTEM_PROMPT}\n\n"
+            f"{base_system_prompt}\n\n"
             f"Meeting profile instruction: {self.config.translator_profile_instruction}"
         )
-        prompt = (
-            f"Meeting profile: {self.config.meeting_profile} ({self.config.language_profile_label})\n"
-            f"Detected language: {language_code}\n"
-            f"Recent meeting context:\n{context or '(none)'}\n\n"
-            f"Sentence to translate:\n{text}"
-        )
+        if self.config.model_preset == "fast":
+            prompt = (
+                f"Profile: {self.config.meeting_profile}; language: {language_code}\n"
+                f"Context:\n{context or '(none)'}\n\n"
+                f"Text:\n{text}\n\n"
+                "Chinese:"
+            )
+        else:
+            prompt = (
+                f"Meeting profile: {self.config.meeting_profile} ({self.config.language_profile_label})\n"
+                f"Detected language: {language_code}\n"
+                f"Recent meeting context:\n{context or '(none)'}\n\n"
+                f"Sentence to translate:\n{text}"
+            )
+        options = {
+            "temperature": 0.05 if self.config.model_preset == "fast" else 0.1,
+            "num_predict": self.config.translation_num_predict,
+        }
 
         try:
+            if stream:
+                response_stream = await self.client.generate(
+                    model=self.config.ollama_model,
+                    system=system_prompt,
+                    prompt=prompt,
+                    stream=True,
+                    options=options,
+                )
+                chunks: list[str] = []
+                async for part in response_stream:
+                    delta = _response_text(part)
+                    if not delta:
+                        continue
+                    chunks.append(delta)
+                    if on_partial:
+                        on_partial("".join(chunks).strip())
+                translated = "".join(chunks).strip()
+                return translated or "（Ollama 未返回翻译，保留原文）"
+
             response = await self.client.generate(
                 model=self.config.ollama_model,
                 system=system_prompt,
                 prompt=prompt,
-                options={"temperature": 0.1, "num_predict": 256},
+                options=options,
             )
         except Exception as exc:
             return f"（Ollama 暂不可用，保留原文：{exc.__class__.__name__}）"
@@ -89,7 +161,7 @@ class LLMRefiner:
                 model=self.config.ollama_model,
                 system=SUMMARY_SYSTEM_PROMPT,
                 prompt=prompt,
-                options={"temperature": 0.1, "num_predict": 900},
+                options={"temperature": 0.1, "num_predict": self.config.summary_num_predict},
             )
         except Exception as exc:
             return f"（Ollama 暂不可用，已使用本地规则摘要。错误：{exc.__class__.__name__}）"
@@ -107,6 +179,22 @@ class LLMRefiner:
                 original_text=original_text,
                 context_history=context_history,
                 language_code=language_code,
+            )
+        )
+
+    def refine_and_translate_stream_sync(
+        self,
+        original_text: str,
+        context_history: Sequence[str] | None = None,
+        language_code: str = "auto",
+        on_partial: Callable[[str], None] | None = None,
+    ) -> str:
+        return asyncio.run(
+            self.refine_and_translate_stream(
+                original_text=original_text,
+                context_history=context_history,
+                language_code=language_code,
+                on_partial=on_partial,
             )
         )
 

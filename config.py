@@ -92,21 +92,27 @@ MODEL_PRESETS: dict[str, dict[str, Any]] = {
         "asr_model_size": "base",
         "asr_beam_size": 1,
         "asr_file_beam_size": 2,
-        "vad_silence_ms": 500,
+        "vad_sensitivity": 85,
+        "context_window_size": 4,
+        "translation_num_predict": 128,
     },
     "balanced": {
         "label": "Balanced",
         "asr_model_size": "small",
         "asr_beam_size": 1,
         "asr_file_beam_size": 3,
-        "vad_silence_ms": 600,
+        "vad_sensitivity": 65,
+        "context_window_size": 6,
+        "translation_num_predict": 160,
     },
     "accurate": {
         "label": "Accurate",
         "asr_model_size": "medium",
         "asr_beam_size": 3,
         "asr_file_beam_size": 5,
-        "vad_silence_ms": 720,
+        "vad_sensitivity": 40,
+        "context_window_size": 8,
+        "translation_num_predict": 256,
     },
 }
 
@@ -189,6 +195,7 @@ class AppConfig(BaseModel):
     audio_sample_rate: int = 16_000
     audio_chunk_ms: int = 320
     vad_mode: str = "auto"
+    vad_sensitivity: int = 85
     silero_threshold: float = 0.48
     vad_threshold: float = 0.5
     vad_energy_threshold: float = 0.012
@@ -215,8 +222,13 @@ class AppConfig(BaseModel):
     ollama_host: str = "http://127.0.0.1:11434"
     ollama_timeout_seconds: float = 60.0
     context_window_size: int = 8
+    translation_num_predict: int = 128
+    translation_streaming_enabled: bool = True
+    summary_num_predict: int = 800
     translation_queue_limit: int = 12
     summary_max_transcript_chars: int = 18_000
+    auto_summary_on_end: bool = True
+    auto_export_on_end: bool = True
     save_reports_enabled: bool = True
     privacy_mode: bool = False
     debug_audio_enabled: bool = False
@@ -331,10 +343,27 @@ def load_config(
         asr_force_language=env_force_language
         if env_force_language is not None
         else profile_settings["force_language"],
-        vad_silence_ms=_optional_int(os.getenv("LMC_VAD_SILENCE_MS"))
-        or preset_settings["vad_silence_ms"],
+        vad_sensitivity=_optional_int(os.getenv("LMC_VAD_SENSITIVITY"))
+        or _setting_int(saved, "vad_sensitivity")
+        or int(preset_settings["vad_sensitivity"]),
         ollama_model=os.getenv("LMC_OLLAMA_MODEL", "qwen2.5:3b-instruct"),
         ollama_host=os.getenv("LMC_OLLAMA_HOST", "http://127.0.0.1:11434"),
+        context_window_size=_optional_int(os.getenv("LMC_CONTEXT_WINDOW_SIZE"))
+        or int(preset_settings["context_window_size"]),
+        translation_num_predict=_optional_int(os.getenv("LMC_TRANSLATION_NUM_PREDICT"))
+        or int(preset_settings["translation_num_predict"]),
+        translation_streaming_enabled=_optional_bool(
+            os.getenv("LMC_TRANSLATION_STREAMING"),
+            _setting_bool(saved, "translation_streaming_enabled", True),
+        ),
+        auto_summary_on_end=_optional_bool(
+            os.getenv("LMC_AUTO_SUMMARY_ON_END"),
+            _setting_bool(saved, "auto_summary_on_end", True),
+        ),
+        auto_export_on_end=_optional_bool(
+            os.getenv("LMC_AUTO_EXPORT_ON_END"),
+            _setting_bool(saved, "auto_export_on_end", True),
+        ),
         mic_device_index=_optional_int(os.getenv("LMC_MIC_DEVICE_INDEX"))
         if os.getenv("LMC_MIC_DEVICE_INDEX") is not None
         else _setting_int(saved, "mic_device_index"),
@@ -371,6 +400,9 @@ def load_config(
         vad_mode=normalise_vad_mode(os.getenv("LMC_VAD_MODE") or _setting_str(saved, "vad_mode", "auto")),
         speaker_aliases=_setting_speaker_aliases(saved),
     )
+    apply_vad_sensitivity(config, config.vad_sensitivity)
+    if (env_vad_silence_ms := _optional_int(os.getenv("LMC_VAD_SILENCE_MS"))) is not None:
+        config.vad_silence_ms = env_vad_silence_ms
     config.ensure_directories()
     return config
 
@@ -401,6 +433,10 @@ def runtime_settings_payload(config: AppConfig) -> dict[str, Any]:
         "debug_audio_enabled": config.debug_audio_enabled,
         "partial_subtitles_enabled": config.partial_subtitles_enabled,
         "vad_mode": config.vad_mode,
+        "vad_sensitivity": config.vad_sensitivity,
+        "translation_streaming_enabled": config.translation_streaming_enabled,
+        "auto_summary_on_end": config.auto_summary_on_end,
+        "auto_export_on_end": config.auto_export_on_end,
         "speaker_aliases": dict(sorted(config.speaker_aliases.items())),
     }
 
@@ -452,7 +488,22 @@ def apply_model_preset(config: AppConfig, preset: str) -> None:
     config.asr_model_size = str(settings["asr_model_size"])
     config.asr_beam_size = int(settings["asr_beam_size"])
     config.asr_file_beam_size = int(settings["asr_file_beam_size"])
-    config.vad_silence_ms = int(settings["vad_silence_ms"])
+    config.context_window_size = int(settings["context_window_size"])
+    config.translation_num_predict = int(settings["translation_num_predict"])
+    apply_vad_sensitivity(config, int(settings["vad_sensitivity"]))
+
+
+def apply_vad_sensitivity(config: AppConfig, sensitivity: int) -> None:
+    clamped = max(0, min(100, int(sensitivity)))
+    ratio = clamped / 100
+    config.vad_sensitivity = clamped
+    config.vad_energy_threshold = round(0.018 - (0.012 * ratio), 4)
+    config.vad_min_speech_ms = int(520 - (280 * ratio))
+    config.vad_silence_ms = int(720 - (420 * ratio))
+    config.partial_interval_ms = int(1300 - (600 * ratio))
+    config.partial_min_audio_seconds = round(1.2 - (0.55 * ratio), 2)
+    config.merge_short_sentence_ms = int(760 - (260 * ratio))
+    config.german_clause_merge_ms = int(980 - (280 * ratio))
 
 
 def normalise_translation_style(value: str | None) -> str:

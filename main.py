@@ -25,6 +25,7 @@ from config import (
     AppConfig,
     apply_meeting_profile,
     apply_model_preset,
+    apply_vad_sensitivity,
     load_config,
     save_runtime_settings,
 )
@@ -38,10 +39,18 @@ from ui.overlay_window import SubtitleOverlay
 class WorkerSignals(QObject):
     status = Signal(str)
     draft_ready = Signal(object)
+    translation_delta = Signal(object, str)
     translation_ready = Signal(object, str)
     report_ready = Signal(str)
     error = Signal(str)
     finished = Signal()
+
+
+def _safe_emit(signal: object, *args: object) -> None:
+    try:
+        signal.emit(*args)  # type: ignore[attr-defined]
+    except RuntimeError:
+        return
 
 
 class TranslationTask(QRunnable):
@@ -56,17 +65,36 @@ class TranslationTask(QRunnable):
     def run(self) -> None:
         try:
             self.draft.translation_started_at = time.perf_counter()
-            translated = LLMRefiner(self.config).refine_and_translate_sync(
-                self.draft.text,
-                self.context_history,
-                language_code=self.draft.language_code,
-            )
+            refiner = LLMRefiner(self.config)
+            if self.config.translation_streaming_enabled:
+                last_emit = 0.0
+
+                def emit_partial(partial_text: str) -> None:
+                    nonlocal last_emit
+                    now = time.perf_counter()
+                    if now - last_emit < 0.08:
+                        return
+                    last_emit = now
+                    _safe_emit(self.signals.translation_delta, self.draft, partial_text)
+
+                translated = refiner.refine_and_translate_stream_sync(
+                    self.draft.text,
+                    self.context_history,
+                    language_code=self.draft.language_code,
+                    on_partial=emit_partial,
+                )
+            else:
+                translated = refiner.refine_and_translate_sync(
+                    self.draft.text,
+                    self.context_history,
+                    language_code=self.draft.language_code,
+                )
             self.draft.translation_completed_at = time.perf_counter()
-            self.signals.translation_ready.emit(self.draft, translated)
+            _safe_emit(self.signals.translation_ready, self.draft, translated)
         except Exception as exc:
-            self.signals.error.emit(f"Translation failed: {exc}")
+            _safe_emit(self.signals.error, f"Translation failed: {exc}")
         finally:
-            self.signals.finished.emit()
+            _safe_emit(self.signals.finished)
 
 
 class SummaryTask(QRunnable):
@@ -80,11 +108,11 @@ class SummaryTask(QRunnable):
     def run(self) -> None:
         try:
             report = LLMRefiner(self.config).summarize_meeting_sync(self.transcript_markdown)
-            self.signals.report_ready.emit(report)
+            _safe_emit(self.signals.report_ready, report)
         except Exception as exc:
-            self.signals.error.emit(f"Summary failed: {exc}")
+            _safe_emit(self.signals.error, f"Summary failed: {exc}")
         finally:
-            self.signals.finished.emit()
+            _safe_emit(self.signals.finished)
 
 
 class WavTranscriptionTask(QRunnable):
@@ -98,16 +126,16 @@ class WavTranscriptionTask(QRunnable):
     @Slot()
     def run(self) -> None:
         try:
-            self.signals.status.emit(f"Loading Whisper model: {self.config.asr_model_size}")
+            _safe_emit(self.signals.status, f"Loading Whisper model: {self.config.asr_model_size}")
             drafts = self.asr_engine.transcribe_file(self.wav_path)
             if not drafts:
-                self.signals.status.emit("No speech detected in WAV file")
+                _safe_emit(self.signals.status, "No speech detected in WAV file")
             for draft in drafts:
-                self.signals.draft_ready.emit(draft)
+                _safe_emit(self.signals.draft_ready, draft)
         except Exception as exc:
-            self.signals.error.emit(f"WAV transcription failed: {exc}")
+            _safe_emit(self.signals.error, f"WAV transcription failed: {exc}")
         finally:
-            self.signals.finished.emit()
+            _safe_emit(self.signals.finished)
 
 
 class AudioTranscriptionTask(QRunnable):
@@ -121,12 +149,12 @@ class AudioTranscriptionTask(QRunnable):
     @Slot()
     def run(self) -> None:
         if self.draft.audio_data is None or self.draft.audio_data.size == 0:
-            self.signals.error.emit("No audio data to transcribe")
-            self.signals.finished.emit()
+            _safe_emit(self.signals.error, "No audio data to transcribe")
+            _safe_emit(self.signals.finished)
             return
 
         try:
-            self.signals.status.emit(f"Transcribing [{self.draft.speaker}] with Whisper")
+            _safe_emit(self.signals.status, f"Transcribing [{self.draft.speaker}] with Whisper")
             self.draft.asr_started_at = time.perf_counter()
             language_code, text, confidence = self.asr_engine.transcribe_sentence(self.draft.audio_data)
             self.draft.asr_completed_at = time.perf_counter()
@@ -134,13 +162,13 @@ class AudioTranscriptionTask(QRunnable):
             self.draft.text = text
             self.draft.confidence = confidence
             if text:
-                self.signals.draft_ready.emit(self.draft)
+                _safe_emit(self.signals.draft_ready, self.draft)
             else:
-                self.signals.status.emit("Whisper returned no text for this sentence")
+                _safe_emit(self.signals.status, "Whisper returned no text for this sentence")
         except Exception as exc:
-            self.signals.error.emit(f"ASR failed: {exc}")
+            _safe_emit(self.signals.error, f"ASR failed: {exc}")
         finally:
-            self.signals.finished.emit()
+            _safe_emit(self.signals.finished)
 
 
 class PartialTranscriptionTask(QRunnable):
@@ -154,7 +182,7 @@ class PartialTranscriptionTask(QRunnable):
     @Slot()
     def run(self) -> None:
         if self.draft.audio_data is None or self.draft.audio_data.size == 0:
-            self.signals.finished.emit()
+            _safe_emit(self.signals.finished)
             return
 
         try:
@@ -166,11 +194,11 @@ class PartialTranscriptionTask(QRunnable):
             self.draft.text = text
             self.draft.confidence = confidence
             if text:
-                self.signals.draft_ready.emit(self.draft)
+                _safe_emit(self.signals.draft_ready, self.draft)
         except Exception as exc:
-            self.signals.error.emit(f"Partial ASR failed: {exc}")
+            _safe_emit(self.signals.error, f"Partial ASR failed: {exc}")
         finally:
-            self.signals.finished.emit()
+            _safe_emit(self.signals.finished)
 
 
 class MeetingAppController(QObject):
@@ -192,8 +220,12 @@ class MeetingAppController(QObject):
         self._last_status = "Ready"
         self._translation_queue: deque[TranscriptDraft] = deque()
         self._translation_busy = False
+        self._asr_busy_count = 0
         self._partial_busy_tracks: set[str] = set()
         self._latest_ai_summary: str | None = None
+        self._auto_summary_pending = False
+        self._auto_export_after_summary = False
+        self._suppress_audio_finished_auto_summary = False
         self._merge_buffer: TranscriptDraft | None = None
         self._merge_timer = QTimer(self)
         self._merge_timer.setSingleShot(True)
@@ -240,8 +272,10 @@ class MeetingAppController(QObject):
     @Slot()
     def pause(self) -> None:
         if self.audio_engine:
+            self._suppress_audio_finished_auto_summary = True
             self.audio_engine.stop()
             self.audio_engine = None
+            self._suppress_audio_finished_auto_summary = False
         self._running_source = False
         self.dashboard.set_running_state(False)
         self._set_status("Paused")
@@ -249,12 +283,20 @@ class MeetingAppController(QObject):
     @Slot()
     def end(self) -> None:
         if self.audio_engine:
+            self._suppress_audio_finished_auto_summary = True
             self.audio_engine.stop()
             self.audio_engine = None
+            self._suppress_audio_finished_auto_summary = False
         self._flush_merge_buffer()
         self._running_source = False
         self.dashboard.set_running_state(False)
-        self._set_status("Meeting ended")
+        if self.config.auto_summary_on_end:
+            self._auto_summary_pending = True
+            self._auto_export_after_summary = self.config.auto_export_on_end
+            self._set_status("Meeting ended; preparing auto summary")
+            self._maybe_start_pending_auto_summary()
+        else:
+            self._set_status("Meeting ended")
 
     @Slot()
     def export_report(self) -> None:
@@ -276,8 +318,19 @@ class MeetingAppController(QObject):
         if not self.summarizer.entries:
             self._set_status("No transcript entries to summarize")
             return
+        if self._asr_busy_count or self._translation_busy or self._translation_queue:
+            self._set_status("Summary waits for the current ASR/translation queue to finish")
+            return
+        self._start_summary_task(auto_export=False, show_local_preview=False)
+
+    def _start_summary_task(self, *, auto_export: bool, show_local_preview: bool) -> None:
         transcript = self.summarizer.transcript_markdown(limit_chars=self.config.summary_max_transcript_chars)
-        self._set_status("Generating Ollama meeting summary")
+        self._auto_export_after_summary = auto_export
+        if show_local_preview:
+            self.dashboard.set_report(self.summarizer.build_markdown_report())
+            self._set_status("Local summary preview ready; generating Ollama summary")
+        else:
+            self._set_status("Generating Ollama meeting summary")
         self.dashboard.set_summary_running(True)
         task = SummaryTask(self.config, transcript)
         task.signals.report_ready.connect(self._on_summary_ready)
@@ -357,18 +410,32 @@ class MeetingAppController(QObject):
         self._translation_busy = True
         self._set_status(f"Translating [{draft.speaker}]")
         self.overlay.update_preview(draft.speaker, draft.text)
-        task = TranslationTask(self.config, draft, self.summarizer.context_history())
+        task = TranslationTask(
+            self.config,
+            draft,
+            self.summarizer.context_history(limit=self.config.context_window_size),
+        )
+        task.signals.translation_delta.connect(self._on_translation_delta)
         task.signals.translation_ready.connect(self._on_translation)
         task.signals.error.connect(self._set_status)
         task.signals.finished.connect(self._on_translation_finished)
         self.thread_pool.start(task)
 
     def _start_audio_transcription(self, draft: TranscriptDraft) -> None:
+        self._asr_busy_count += 1
         task = AudioTranscriptionTask(self.config, self.asr_engine, draft)
         task.signals.status.connect(self._set_status)
         task.signals.draft_ready.connect(self._on_draft)
         task.signals.error.connect(self._set_status)
+        task.signals.finished.connect(self._on_asr_finished)
         self.thread_pool.start(task)
+
+    @Slot(object, str)
+    def _on_translation_delta(self, draft: TranscriptDraft, translated_partial: str) -> None:
+        if not translated_partial.strip():
+            return
+        self.overlay.update_translation_partial(draft.speaker, draft.text, translated_partial)
+        self.dashboard.set_translation_preview(draft.speaker, draft.text, translated_partial)
 
     @Slot(object, str)
     def _on_translation(self, draft: TranscriptDraft, translated: str) -> None:
@@ -397,13 +464,26 @@ class MeetingAppController(QObject):
     def _on_translation_finished(self) -> None:
         self._translation_busy = False
         self._drain_translation_queue()
+        self._maybe_start_pending_auto_summary()
+
+    @Slot()
+    def _on_asr_finished(self) -> None:
+        self._asr_busy_count = max(0, self._asr_busy_count - 1)
+        self._maybe_start_pending_auto_summary()
 
     @Slot(str)
     def _on_summary_ready(self, report: str) -> None:
         self._latest_ai_summary = report
         markdown = self.summarizer.build_markdown_report(ai_summary=report)
-        self.dashboard.set_report(markdown)
-        self._set_status("Ollama meeting summary ready")
+        if self._auto_export_after_summary and not self.config.privacy_mode and self.config.save_reports_enabled:
+            markdown_path = self.summarizer.export_markdown(ai_summary=report)
+            self.summarizer.export_json(markdown_path.with_suffix(".json"))
+            self.dashboard.set_report(markdown, markdown_path)
+            self._set_status(f"Ollama summary ready and exported: {markdown_path}")
+        else:
+            self.dashboard.set_report(markdown)
+            self._set_status("Ollama meeting summary ready")
+        self._auto_export_after_summary = False
 
     def _set_status(self, message: str) -> None:
         self._last_status = message
@@ -415,6 +495,7 @@ class MeetingAppController(QObject):
         previous_model = self.config.asr_model_size
         apply_meeting_profile(self.config, str(settings["profile"]))
         apply_model_preset(self.config, str(settings["preset"]))
+        apply_vad_sensitivity(self.config, int(settings["vad_sensitivity"]))
         self.config.translation_style = str(settings["style"])
         self.config.mic_device_index = settings["mic_device_index"]  # type: ignore[assignment]
         self.config.remote_device_index = settings["remote_device_index"]  # type: ignore[assignment]
@@ -423,6 +504,7 @@ class MeetingAppController(QObject):
         self.config.save_reports_enabled = bool(settings["save_reports_enabled"])
         self.config.privacy_mode = bool(settings["privacy_mode"])
         self.config.debug_audio_enabled = bool(settings["debug_audio_enabled"])
+        self.config.auto_summary_on_end = bool(settings["auto_summary_on_end"])
         self.config.speaker_aliases = dict(self.speaker_aliases)
         self.dashboard.sync_from_config()
         if previous_model != self.config.asr_model_size and not self._running_source:
@@ -457,12 +539,24 @@ class MeetingAppController(QObject):
         self.dashboard.set_running_state(False)
         if "windows-only" in self._last_status.lower() or "not enabled" in self._last_status.lower():
             return
+        if self._suppress_audio_finished_auto_summary:
+            return
+        if self.config.auto_summary_on_end:
+            self._auto_summary_pending = True
+            self._auto_export_after_summary = self.config.auto_export_on_end
+            self._maybe_start_pending_auto_summary()
+            return
         self._set_status("Audio source finished")
 
     @Slot()
     def _on_wav_finished(self) -> None:
         self._running_source = False
         self.dashboard.set_running_state(False)
+        if self.config.auto_summary_on_end:
+            self._auto_summary_pending = True
+            self._auto_export_after_summary = self.config.auto_export_on_end
+            self._maybe_start_pending_auto_summary()
+            return
         self._set_status("WAV transcription finished")
 
     def _should_merge_short_sentence(self, draft: TranscriptDraft) -> bool:
@@ -502,6 +596,24 @@ class MeetingAppController(QObject):
         draft = self._merge_buffer
         self._merge_buffer = None
         self._enqueue_translation_now(draft)
+
+    def _maybe_start_pending_auto_summary(self) -> None:
+        if not self._auto_summary_pending:
+            return
+        if self._merge_buffer is not None:
+            self._set_status("Auto summary waiting for sentence merge buffer")
+            return
+        if self._asr_busy_count or self._translation_busy or self._translation_queue:
+            self._set_status("Auto summary waiting for ASR/translation queue")
+            return
+        self._auto_summary_pending = False
+        if not self.summarizer.entries:
+            self._set_status("Meeting ended; no transcript entries to summarize")
+            return
+        self._start_summary_task(
+            auto_export=self.config.auto_export_on_end,
+            show_local_preview=True,
+        )
 
     def _should_hold_for_german_clause(self, draft: TranscriptDraft) -> bool:
         if not self.config.german_clause_merge_enabled:
@@ -551,7 +663,16 @@ def run_environment_check(
     force_language = cfg.asr_force_language or "auto"
     print(f"ASR languages: allowed={allowed_languages} / force={force_language} / fallback={cfg.asr_default_language}")
     partial = "on" if cfg.partial_subtitles_enabled else "off"
-    print(f"VAD mode: {cfg.vad_mode} / partial subtitles: {partial}")
+    streaming = "on" if cfg.translation_streaming_enabled else "off"
+    print(
+        f"VAD mode: {cfg.vad_mode} / sensitivity={cfg.vad_sensitivity} / "
+        f"silence={cfg.vad_silence_ms}ms / partial={partial}@{cfg.partial_interval_ms}ms"
+    )
+    print(
+        f"Translation: streaming={streaming} / context={cfg.context_window_size} / "
+        f"num_predict={cfg.translation_num_predict}"
+    )
+    print(f"Auto summary on End: {cfg.auto_summary_on_end} / auto export: {cfg.auto_export_on_end}")
     print(f"Custom/profile terms: {len(cfg.profile_terms_text.split())} tokens")
     print(f"Saved settings: {cfg.settings_file}")
     print(f"Speaker aliases: {len(cfg.speaker_aliases)}")
