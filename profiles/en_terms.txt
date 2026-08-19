@@ -1,0 +1,25 @@
+# English business and technical meeting terms
+data pipeline
+data quality
+customer table
+dashboard
+migration
+rollout
+approval
+dependency
+interface
+requirement
+decision
+risk
+blocker
+deadline
+production
+staging
+deployment
+follow-up
+owner
+action item
+review
+feedback
+alignment
+status update

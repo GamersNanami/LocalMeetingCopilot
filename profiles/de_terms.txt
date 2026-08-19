@@ -1,0 +1,26 @@
+# German business and technical meeting terms
+Datenpipeline
+Datenqualitaet
+Kundentabelle
+Dashboard
+Migration
+Rollout
+Freigabe
+Abhaengigkeit
+Schnittstelle
+Anforderung
+Entscheidung
+Risiko
+Blocker
+Frist
+Deadline
+Produktion
+Staging
+Deployment
+Nachverfolgung
+Verantwortlichkeit
+Massnahme
+Pruefung
+Rueckmeldung
+Abstimmung
+Statusupdate

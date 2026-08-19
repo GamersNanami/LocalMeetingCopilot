@@ -1,0 +1,2 @@
+# Optional Silero VAD backend. Keep this separate because it can install torch-related packages.
+silero-vad>=6.2.1,<7

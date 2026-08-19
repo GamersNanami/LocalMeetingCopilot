@@ -1,0 +1,2 @@
+# Add company names, project names, people, acronyms, and recurring domain terms here.
+# One term per line. Lines starting with # are ignored.

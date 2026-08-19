@@ -1,0 +1,27 @@
+# Mixed German-English meeting terms
+Datenpipeline
+data pipeline
+Datenqualitaet
+data quality
+Kundentabelle
+customer table
+Dashboard
+Migration
+Rollout
+Freigabe
+approval
+Abhaengigkeit
+dependency
+Schnittstelle
+interface
+Anforderung
+requirement
+Entscheidung
+decision
+Risiko
+risk
+Blocker
+deadline
+action item
+Statusupdate
+follow-up

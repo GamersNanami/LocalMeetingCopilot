@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LocalMeetingCopilot Guide</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --ink: #20242b;
+      --muted: #5f6977;
+      --line: #d9dee7;
+      --panel: #ffffff;
+      --accent: #1d5fbf;
+      --accent-soft: #e7f0ff;
+      --code: #111827;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.55;
+    }
+    header {
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+      padding: 28px 24px 22px;
+    }
+    .wrap {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 4vw, 44px);
+      letter-spacing: 0;
+    }
+    .subtitle {
+      color: var(--muted);
+      margin: 0;
+      max-width: 880px;
+    }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+    nav a {
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid #caddff;
+      border-radius: 6px;
+      padding: 6px 10px;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    main {
+      padding: 24px 0 42px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      margin-bottom: 18px;
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+    h3 {
+      margin: 20px 0 8px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px;
+    }
+    .lang {
+      min-width: 0;
+    }
+    .lang-title {
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    p {
+      margin: 8px 0;
+    }
+    ul, ol {
+      padding-left: 20px;
+      margin: 8px 0 0;
+    }
+    li {
+      margin: 5px 0;
+    }
+    code {
+      color: var(--code);
+      background: #eef1f5;
+      border-radius: 4px;
+      padding: 1px 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      background: #111827;
+      color: #f8fafc;
+      border-radius: 8px;
+      padding: 12px;
+      overflow-x: auto;
+      white-space: pre;
+      font-size: 13px;
+    }
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: #f8fbff;
+      padding: 10px 12px;
+      margin-top: 12px;
+    }
+    @media (max-width: 780px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      section {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>LocalMeetingCopilot</h1>
+      <p class="subtitle">Offline-friendly bilingual guide for the local German/English meeting copilot. 本页面是本地可打开的中英双语操作指南。</p>
+      <nav aria-label="Guide sections">
+        <a href="#start">Quick Start / 快速开始</a>
+        <a href="#mac">macOS</a>
+        <a href="#windows">Windows</a>
+        <a href="#controls">Dashboard</a>
+        <a href="#profiles">Profiles</a>
+        <a href="#privacy">Privacy / 隐私</a>
+        <a href="#next">Next Work / 后续提升</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="start">
+      <h2>Quick Start / 快速开始</h2>
+      <div class="grid">
+        <div class="lang">
+          <div class="lang-title">English</div>
+          <p>Activate the virtual environment, run checks, then start the mock meeting first.</p>
+          <pre><code>cd /Users/yuanxiaoyu/projects/LocalMeetingCopilot
+source .venv/bin/activate
+python run.py --check
+python run.py --mock</code></pre>
+          <p>Use mock mode first to verify the UI, Ollama, profile settings, and translation pipeline without touching audio devices.</p>
+        </div>
+        <div class="lang">
+          <div class="lang-title">中文</div>
+          <p>先激活虚拟环境，运行自检，再启动 mock 会议。</p>
+          <pre><code>cd /Users/yuanxiaoyu/projects/LocalMeetingCopilot
+source .venv/bin/activate
+python run.py --check
+python run.py --mock</code></pre>
+          <p>建议先用 mock 模式确认 UI、Ollama、语言频道和翻译队列都正常，再开始调真实音频设备。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="mac">
+      <h2>macOS Guide / macOS 使用</h2>
+      <div class="grid">
+        <div class="lang">
+          <div class="lang-title">English</div>
+          <p>For local microphone only:</p>
+          <pre><code>python run.py --mic</code></pre>
+          <p>For two-track experiments, use a local mic plus a remote input device such as Microsoft Teams Audio, Zoom Audio, BlackHole, or Background Music.</p>
+          <pre><code>export LMC_MIC_DEVICE_INDEX=0
+export LMC_REMOTE_DEVICE_INDEX=2
+python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
+          <p>If no remote input appears, install BlackHole and route meeting audio into it.</p>
+          <pre><code>brew install blackhole-2ch</code></pre>
+        </div>
+        <div class="lang">
+          <div class="lang-title">中文</div>
+          <p>只测试本地麦克风：</p>
+          <pre><code>python run.py --mic</code></pre>
+          <p>双轨实验模式使用本地麦克风加远端输入设备，例如 Microsoft Teams Audio、Zoom Audio、BlackHole 或 Background Music。</p>
+          <pre><code>export LMC_MIC_DEVICE_INDEX=0
+export LMC_REMOTE_DEVICE_INDEX=2
+python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
+          <p>如果没有远端输入设备，可以安装 BlackHole，并在 Audio MIDI Setup 中把会议声音路由进去。</p>
+          <pre><code>brew install blackhole-2ch</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="windows">
+      <h2>Windows Guide / Windows 使用</h2>
+      <div class="grid">
+        <div class="lang">
+          <div class="lang-title">English</div>
+          <p>Windows live mode uses local mic as <code>[Me]</code> and WASAPI loopback for remote participants.</p>
+          <pre><code>py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe run.py --check
+.\.venv\Scripts\python.exe run.py --live --profile de</code></pre>
+          <p>If PowerShell blocks scripts:</p>
+          <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\windows_smoke.ps1 -Profile de</code></pre>
+        </div>
+        <div class="lang">
+          <div class="lang-title">中文</div>
+          <p>Windows live 模式使用本地麦克风作为 <code>[Me]</code>，用 WASAPI loopback 捕获远端会议声音。</p>
+          <pre><code>py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe run.py --check
+.\.venv\Scripts\python.exe run.py --live --profile de</code></pre>
+          <p>如果 PowerShell 执行策略拦截脚本：</p>
+          <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\windows_smoke.ps1 -Profile de</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="controls">
+      <h2>Dashboard Controls / 控制面板</h2>
+      <div class="grid">
+        <div class="lang">
+          <div class="lang-title">English</div>
+          <ul>
+            <li><code>Profile</code>: German, English, or German + English.</li>
+            <li><code>Preset</code>: fast, balanced, or accurate.</li>
+            <li><code>Style</code>: literal, meeting-note, or natural Chinese.</li>
+            <li>Choose mic and remote input devices before pressing Start.</li>
+            <li>Toggle mic/remote tracks, report saving, privacy mode, and debug WAV.</li>
+            <li>Latency shows ASR, LLM, and total time per translated sentence.</li>
+            <li>Select a transcript row to rename <code>Remote Participant</code>; the alias is remembered for future speech.</li>
+            <li>Runtime choices are saved to local <code>settings.json</code> and restored on the next launch.</li>
+          </ul>
+        </div>
+        <div class="lang">
+          <div class="lang-title">中文</div>
+          <ul>
+            <li><code>Profile</code>：德语、英语、德英混合。</li>
+            <li><code>Preset</code>：fast、balanced、accurate。</li>
+            <li><code>Style</code>：精准直译、会议纪要风、自然中文。</li>
+            <li>建议点击 Start 前先选好麦克风和远端输入设备。</li>
+            <li>可以开关本地/远端轨道、报告保存、隐私模式和 debug WAV。</li>
+            <li>延迟诊断会显示每句话的 ASR、LLM 和总耗时。</li>
+            <li>选中逐字稿后可以把 <code>Remote Participant</code> 改成真实姓名，后续会自动记住。</li>
+            <li>运行时选择会保存到本地 <code>settings.json</code>，下次启动自动恢复。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="profiles">
+      <h2>Profiles And Vocabulary / 语言频道与词库</h2>
+      <div class="grid">
+        <div class="lang">
+          <div class="lang-title">English</div>
+          <p>Use <code>--profile de</code> for mostly German meetings. It forces German ASR, injects German business vocabulary, and reduces multilingual hallucinations.</p>
+          <pre><code>python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
+          <p>Partial subtitles show temporary ASR text while someone is speaking. Final subtitles are translated after the sentence is cut and refined. German clause fragments around <code>weil</code>, <code>dass</code>, <code>wenn</code>, and <code>obwohl</code> are held briefly for cleaner translations.</p>
+          <p>Add names, company terms, project names, and acronyms to:</p>
+          <pre><code>profiles/custom_terms.txt</code></pre>
+          <p>Optional Silero VAD is used automatically when installed; otherwise the built-in energy VAD remains active.</p>
+          <pre><code>python -m pip install -r requirements-vad.txt
+export LMC_VAD_MODE=auto</code></pre>
+        </div>
+        <div class="lang">
+          <div class="lang-title">中文</div>
+          <p>德语会议优先使用 <code>--profile de</code>。它会强制德语 ASR，注入德语业务词表，并减少多语言幻听。</p>
+          <pre><code>python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
+          <p>说话中会先显示 partial 临时字幕，完整句切好后再进入精修翻译。遇到 <code>weil</code>、<code>dass</code>、<code>wenn</code>、<code>obwohl</code> 等德语从句片段时，会短暂等待上下文以改善中文翻译。</p>
+          <p>人名、公司名、项目名、缩写放到这里：</p>
+          <pre><code>profiles/custom_terms.txt</code></pre>
+          <p>如果安装了 Silero VAD，默认会自动使用；没有安装时会继续使用内置 energy VAD。</p>
+          <pre><code>python -m pip install -r requirements-vad.txt
+export LMC_VAD_MODE=auto</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy">
+      <h2>Privacy / 隐私</h2>
+      <div class="grid">
+        <div class="lang">
+          <div class="lang-title">English</div>
+          <p>Raw audio is not saved by default. Reports contain only transcript text and Chinese translations.</p>
+          <pre><code>python run.py --mac-live --profile de --privacy</code></pre>
+          <p>Use debug audio only while diagnosing ASR problems. It writes completed speech chunks to <code>logs/debug_audio/</code>.</p>
+        </div>
+        <div class="lang">
+          <div class="lang-title">中文</div>
+          <p>默认不保存原始音频。报告只包含逐字稿和中文翻译。</p>
+          <pre><code>python run.py --mac-live --profile de --privacy</code></pre>
+          <p>只有排查 ASR 问题时才建议开启 debug audio，它会把切好的语音片段写入 <code>logs/debug_audio/</code>。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="next">
+      <h2>Next Work / 后续提升</h2>
+      <div class="grid">
+        <div class="lang">
+          <div class="lang-title">English</div>
+          <ul>
+            <li>Real Windows validation for WASAPI loopback, Teams/Zoom OCR, and overlay behavior.</li>
+            <li>PyInstaller packaging for Windows and macOS.</li>
+            <li>Richer speaker diarization beyond manual aliases and window OCR.</li>
+            <li>Performance tuning for stronger local German translation models.</li>
+          </ul>
+        </div>
+        <div class="lang">
+          <div class="lang-title">中文</div>
+          <ul>
+            <li>Windows 实机验证 WASAPI loopback、Teams/Zoom OCR 和悬浮窗表现。</li>
+            <li>用 PyInstaller 打包 Windows 和 macOS 版本。</li>
+            <li>继续增强说话人区分，不只依赖手动别名和窗口 OCR。</li>
+            <li>针对更强本地德语翻译模型做性能调优。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>Recommended default / 推荐默认：</strong>
+        <code>python run.py --mac-live --profile de --preset fast --style meeting</code>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
