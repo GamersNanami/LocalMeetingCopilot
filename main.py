@@ -648,7 +648,7 @@ def _print_acceleration_hint(config: AppConfig) -> None:
 def run_app(args: argparse.Namespace) -> int:
     config = load_config(profile=args.profile, preset=args.preset, translation_style=args.style)
     _apply_runtime_arg_overrides(config, args)
-    app = QApplication(sys.argv)
+    app = QApplication([sys.argv[0]])
     app.setApplicationName(config.app_name)
     controller = MeetingAppController(args, config)
     app.setProperty("meeting_controller", controller)
