@@ -225,6 +225,8 @@ class AppConfig(BaseModel):
     context_window_size: int = 8
     translation_num_predict: int = 128
     translation_streaming_enabled: bool = True
+    structured_glossary_enabled: bool = True
+    glossary_max_terms: int = 8
     summary_num_predict: int = 800
     translation_queue_limit: int = 12
     summary_max_transcript_chars: int = 18_000
@@ -289,9 +291,6 @@ class AppConfig(BaseModel):
     def translator_profile_instruction(self) -> str:
         instruction = str(LANGUAGE_PROFILES[self.meeting_profile]["translator_instruction"])
         style = TRANSLATION_STYLES[self.translation_style]
-        terms = self.profile_terms_text
-        if terms:
-            return f"{instruction} {style} Prefer these domain terms/names when relevant: {terms}"
         return f"{instruction} {style}"
 
     @property
@@ -360,6 +359,13 @@ def load_config(
             os.getenv("LMC_TRANSLATION_STREAMING"),
             _setting_bool(saved, "translation_streaming_enabled", True),
         ),
+        structured_glossary_enabled=_optional_bool(
+            os.getenv("LMC_STRUCTURED_GLOSSARY"),
+            _setting_bool(saved, "structured_glossary_enabled", True),
+        ),
+        glossary_max_terms=_optional_int(os.getenv("LMC_GLOSSARY_MAX_TERMS"))
+        or _setting_int(saved, "glossary_max_terms")
+        or 8,
         auto_summary_on_end=_optional_bool(
             os.getenv("LMC_AUTO_SUMMARY_ON_END"),
             _setting_bool(saved, "auto_summary_on_end", True),
@@ -453,6 +459,8 @@ def runtime_settings_payload(config: AppConfig) -> dict[str, Any]:
         "vad_mode": config.vad_mode,
         "vad_sensitivity": config.vad_sensitivity,
         "translation_streaming_enabled": config.translation_streaming_enabled,
+        "structured_glossary_enabled": config.structured_glossary_enabled,
+        "glossary_max_terms": config.glossary_max_terms,
         "auto_summary_on_end": config.auto_summary_on_end,
         "auto_export_on_end": config.auto_export_on_end,
         "speaker_aliases": dict(sorted(config.speaker_aliases.items())),

@@ -86,6 +86,8 @@ def test_runtime_settings_roundtrip(tmp_path) -> None:
         partial_skip_when_asr_busy=False,
         warmup_enabled=False,
         shutdown_wait_ms=2500,
+        structured_glossary_enabled=False,
+        glossary_max_terms=4,
         speaker_aliases={"Remote Participant": "Anna Schmidt"},
     )
 
@@ -102,6 +104,8 @@ def test_runtime_settings_roundtrip(tmp_path) -> None:
     assert loaded["partial_skip_when_asr_busy"] is False
     assert loaded["warmup_enabled"] is False
     assert loaded["shutdown_wait_ms"] == 2500
+    assert loaded["structured_glossary_enabled"] is False
+    assert loaded["glossary_max_terms"] == 4
     assert loaded["speaker_aliases"] == {"Remote Participant": "Anna Schmidt"}
 
 
@@ -112,3 +116,4 @@ def test_profile_terms_include_custom_file(tmp_path) -> None:
 
     assert "Project Phoenix" in config.profile_terms_text
     assert "Musterkunde" in config.asr_hotwords
+    assert "Musterkunde" not in config.translator_profile_instruction

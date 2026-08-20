@@ -6,6 +6,7 @@ from collections.abc import Callable, Sequence
 import ollama
 
 from config import AppConfig, load_config
+from glossary import format_term_matches_for_prompt, load_glossary_terms, match_terms
 
 TRANSLATOR_SYSTEM_PROMPT = """You are an expert bilingual meeting translator (German/English to Chinese).
 Translate the input spoken sentence into accurate, fluent, contextual Simplified Chinese.
@@ -59,6 +60,15 @@ class LLMRefiner:
             host=self.config.ollama_host,
             timeout=self.config.ollama_timeout_seconds,
         )
+        self.glossary_terms = (
+            load_glossary_terms(
+                profile=self.config.meeting_profile,
+                profile_terms_dir=self.config.profile_terms_dir,
+                custom_terms_file=self.config.custom_terms_file,
+            )
+            if self.config.structured_glossary_enabled
+            else []
+        )
 
     async def refine_and_translate(
         self,
@@ -108,6 +118,7 @@ class LLMRefiner:
             return local_translation
 
         context = "\n".join((context_history or [])[-self.config.context_window_size :])
+        glossary_prompt = self.glossary_prompt_for_text(text)
         base_system_prompt = (
             TRANSLATOR_FAST_SYSTEM_PROMPT
             if self.config.model_preset == "fast"
@@ -118,18 +129,22 @@ class LLMRefiner:
             f"Meeting profile instruction: {self.config.translator_profile_instruction}"
         )
         if self.config.model_preset == "fast":
-            prompt = (
-                f"Profile: {self.config.meeting_profile}; language: {language_code}\n"
-                f"Context:\n{context or '(none)'}\n\n"
-                f"Text:\n{text}\n\n"
-                "Chinese:"
+            prompt = build_translation_prompt(
+                config=self.config,
+                text=text,
+                context=context,
+                language_code=language_code,
+                glossary_prompt=glossary_prompt,
+                fast=True,
             )
         else:
-            prompt = (
-                f"Meeting profile: {self.config.meeting_profile} ({self.config.language_profile_label})\n"
-                f"Detected language: {language_code}\n"
-                f"Recent meeting context:\n{context or '(none)'}\n\n"
-                f"Sentence to translate:\n{text}"
+            prompt = build_translation_prompt(
+                config=self.config,
+                text=text,
+                context=context,
+                language_code=language_code,
+                glossary_prompt=glossary_prompt,
+                fast=False,
             )
         options = {
             "temperature": 0.05 if self.config.model_preset == "fast" else 0.1,
@@ -237,6 +252,12 @@ class LLMRefiner:
     def healthcheck_sync(self) -> str:
         return asyncio.run(self.healthcheck())
 
+    def glossary_prompt_for_text(self, text: str) -> str:
+        if not self.glossary_terms:
+            return ""
+        matches = match_terms(text, self.glossary_terms, limit=self.config.glossary_max_terms)
+        return format_term_matches_for_prompt(matches)
+
 
 def _response_text(response: object) -> str:
     if isinstance(response, dict):
@@ -266,3 +287,35 @@ def _translation_num_predict_for(text: str, base_limit: int) -> int:
     if len(stripped) <= 80:
         return min(base_limit, 96)
     return base_limit
+
+
+def build_translation_prompt(
+    *,
+    config: AppConfig,
+    text: str,
+    context: str,
+    language_code: str,
+    glossary_prompt: str,
+    fast: bool,
+) -> str:
+    glossary_section = ""
+    if glossary_prompt:
+        glossary_section = (
+            "Relevant glossary terms. Use the Chinese target exactly when the term appears:\n"
+            f"{glossary_prompt}\n\n"
+        )
+    if fast:
+        return (
+            f"Profile: {config.meeting_profile}; language: {language_code}\n"
+            f"Context:\n{context or '(none)'}\n\n"
+            f"{glossary_section}"
+            f"Text:\n{text}\n\n"
+            "Chinese:"
+        )
+    return (
+        f"Meeting profile: {config.meeting_profile} ({config.language_profile_label})\n"
+        f"Detected language: {language_code}\n"
+        f"Recent meeting context:\n{context or '(none)'}\n\n"
+        f"{glossary_section}"
+        f"Sentence to translate:\n{text}"
+    )
