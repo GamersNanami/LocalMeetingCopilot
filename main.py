@@ -10,7 +10,7 @@ import time
 from collections import deque
 from pathlib import Path
 
-
+#hahahahahaha
 import sounddevice
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Slot
 from PySide6.QtWidgets import QApplication
