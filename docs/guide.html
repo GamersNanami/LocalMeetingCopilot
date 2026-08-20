@@ -287,6 +287,7 @@ python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
           <p>Optional Silero VAD is used automatically when installed; otherwise the built-in energy VAD remains active.</p>
           <pre><code>python -m pip install -r requirements-vad.txt
 export LMC_VAD_MODE=auto</code></pre>
+          <p>For lower first-sentence latency, keep <code>LMC_WARMUP=1</code>. To protect final subtitles from CPU contention, keep <code>LMC_PARTIAL_SKIP_WHEN_ASR_BUSY=1</code>. Common fillers are translated locally, short sentences use smaller Ollama output limits, and <code>LMC_SHUTDOWN_WAIT_MS</code> bounds how long exit waits for background work.</p>
           <p>If Ollama requests hang or app shutdown feels too slow, set <code>LMC_OLLAMA_TIMEOUT_SECONDS=20</code>.</p>
         </div>
         <div class="lang">
@@ -300,6 +301,7 @@ export LMC_VAD_MODE=auto</code></pre>
           <p>如果安装了 Silero VAD，默认会自动使用；没有安装时会继续使用内置 energy VAD。</p>
           <pre><code>python -m pip install -r requirements-vad.txt
 export LMC_VAD_MODE=auto</code></pre>
+          <p>为了降低第一句话延迟，建议保持 <code>LMC_WARMUP=1</code>。为了避免 partial 抢占正式字幕 CPU，建议保持 <code>LMC_PARTIAL_SKIP_WHEN_ASR_BUSY=1</code>。常见语气词会本地翻译，短句会自动使用更小的 Ollama 输出上限，<code>LMC_SHUTDOWN_WAIT_MS</code> 控制退出时等待后台任务的最长时间。</p>
           <p>如果 Ollama 请求卡住，或者退出时等待太久，可以设置 <code>LMC_OLLAMA_TIMEOUT_SECONDS=20</code>。</p>
         </div>
       </div>

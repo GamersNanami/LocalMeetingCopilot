@@ -139,6 +139,17 @@ Translation style meaning:
 - `meeting`: concise meeting-note Chinese.
 - `natural`: smoother spoken Chinese.
 
+Performance knobs:
+
+```bash
+export LMC_WARMUP=1
+export LMC_PARTIAL_SKIP_WHEN_ASR_BUSY=1
+export LMC_OLLAMA_TIMEOUT_SECONDS=20
+export LMC_SHUTDOWN_WAIT_MS=8000
+```
+
+Warmup loads Whisper and pings Ollama shortly after startup. Common filler phrases such as `ja`, `genau`, `okay`, and `mhm` use local translations instead of waiting for Ollama. Short sentences automatically use smaller Ollama output limits. Shutdown waits briefly for background translation before exiting.
+
 Custom vocabulary lives in:
 
 ```text
@@ -393,6 +404,17 @@ Preset 含义：
 - `literal`：尽量精准保留细节。
 - `meeting`：简洁会议纪要风。
 - `natural`：更自然的口语中文。
+
+性能开关：
+
+```bash
+export LMC_WARMUP=1
+export LMC_PARTIAL_SKIP_WHEN_ASR_BUSY=1
+export LMC_OLLAMA_TIMEOUT_SECONDS=20
+export LMC_SHUTDOWN_WAIT_MS=8000
+```
+
+Warmup 会在启动后提前加载 Whisper 并唤醒 Ollama。`ja`、`genau`、`okay`、`mhm` 这类常见语气词会走本地翻译，不再等待 Ollama。短句会自动使用更小的 Ollama 输出上限。退出时会短暂等待后台翻译收尾。
 
 ## 自定义词库
 

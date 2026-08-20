@@ -83,6 +83,9 @@ def test_runtime_settings_roundtrip(tmp_path) -> None:
         remote_device_index=4,
         privacy_mode=True,
         auto_summary_on_end=False,
+        partial_skip_when_asr_busy=False,
+        warmup_enabled=False,
+        shutdown_wait_ms=2500,
         speaker_aliases={"Remote Participant": "Anna Schmidt"},
     )
 
@@ -96,6 +99,9 @@ def test_runtime_settings_roundtrip(tmp_path) -> None:
     assert loaded["remote_device_index"] == 4
     assert loaded["privacy_mode"] is True
     assert loaded["auto_summary_on_end"] is False
+    assert loaded["partial_skip_when_asr_busy"] is False
+    assert loaded["warmup_enabled"] is False
+    assert loaded["shutdown_wait_ms"] == 2500
     assert loaded["speaker_aliases"] == {"Remote Participant": "Anna Schmidt"}
 
 
