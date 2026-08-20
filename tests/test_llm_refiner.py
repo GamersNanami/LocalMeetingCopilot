@@ -7,6 +7,16 @@ from llm_refiner import (
     _translation_num_predict_for,
     build_translation_prompt,
 )
+from translation_cache import TranslationCache
+
+
+class FakeOllamaClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def generate(self, **_kwargs):
+        self.calls += 1
+        return {"response": "我们明天开始。"}
 
 
 def test_local_filler_translation_handles_common_german_fillers() -> None:
@@ -73,3 +83,26 @@ def test_translation_prompt_includes_dynamic_glossary_section() -> None:
 
     assert "Relevant glossary terms" in prompt
     assert "Kundentabelle => 客户表" in prompt
+
+
+def test_refiner_reuses_translation_cache(tmp_path: Path) -> None:
+    config = AppConfig(
+        meeting_profile="de",
+        translation_style="meeting",
+        translation_cache_file=tmp_path / "translation_cache.jsonl",
+        structured_glossary_enabled=False,
+    )
+    client = FakeOllamaClient()
+    cache = TranslationCache(path=config.translation_cache_file, persist=True)
+    refiner = LLMRefiner(config, translation_cache=cache)
+    refiner.client = client  # type: ignore[assignment]
+
+    first = refiner.refine_and_translate_sync("Wir starten morgen.", language_code="de")
+    second = refiner.refine_and_translate_sync("Wir starten morgen.", language_code="de")
+
+    assert first == "我们明天开始。"
+    assert second == "我们明天开始。"
+    assert client.calls == 1
+    assert refiner.last_translation_cache_hit is True
+    assert refiner.last_translation_cache_source == "cache"
+    assert config.translation_cache_file.exists()

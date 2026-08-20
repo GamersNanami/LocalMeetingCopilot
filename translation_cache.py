@@ -190,6 +190,41 @@ class TranslationCache:
         self._disk_keys = {entry.key for entry in self._entries.values()}
 
 
+_CACHE_REGISTRY: dict[tuple[Path | None, bool, bool, int, float], TranslationCache] = {}
+
+
+def get_translation_cache(
+    *,
+    path: Path | None,
+    enabled: bool,
+    persist: bool,
+    max_entries: int,
+    ttl_seconds: float,
+) -> TranslationCache:
+    key = (
+        path,
+        enabled,
+        persist,
+        max(1, int(max_entries)),
+        max(0.0, float(ttl_seconds)),
+    )
+    cache = _CACHE_REGISTRY.get(key)
+    if cache is None:
+        cache = TranslationCache(
+            path=path,
+            enabled=enabled,
+            persist=persist,
+            max_entries=max_entries,
+            ttl_seconds=ttl_seconds,
+        )
+        _CACHE_REGISTRY[key] = cache
+    return cache
+
+
+def clear_translation_cache_registry() -> None:
+    _CACHE_REGISTRY.clear()
+
+
 def make_translation_cache_key(
     *,
     text: str,

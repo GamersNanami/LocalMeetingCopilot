@@ -227,6 +227,10 @@ class AppConfig(BaseModel):
     translation_streaming_enabled: bool = True
     structured_glossary_enabled: bool = True
     glossary_max_terms: int = 8
+    translation_cache_enabled: bool = True
+    translation_cache_persist_enabled: bool = True
+    translation_cache_max_entries: int = 2000
+    translation_cache_ttl_days: int = 30
     summary_num_predict: int = 800
     translation_queue_limit: int = 12
     summary_max_transcript_chars: int = 18_000
@@ -249,6 +253,9 @@ class AppConfig(BaseModel):
     debug_audio_dir: Path = Field(
         default_factory=lambda: _PROJECT_ROOT / "logs" / "debug_audio"
     )
+    translation_cache_file: Path = Field(
+        default_factory=lambda: _PROJECT_ROOT / "logs" / "cache" / "translation_cache.jsonl"
+    )
 
     overlay_width: int = 920
     overlay_height: int = 150
@@ -268,6 +275,12 @@ class AppConfig(BaseModel):
         self.profile_terms_dir.mkdir(parents=True, exist_ok=True)
         if self.debug_audio_enabled:
             self.debug_audio_dir.mkdir(parents=True, exist_ok=True)
+        if (
+            self.translation_cache_enabled
+            and self.translation_cache_persist_enabled
+            and not self.privacy_mode
+        ):
+            self.translation_cache_file.parent.mkdir(parents=True, exist_ok=True)
 
     @property
     def language_profile_label(self) -> str:
@@ -366,6 +379,20 @@ def load_config(
         glossary_max_terms=_optional_int(os.getenv("LMC_GLOSSARY_MAX_TERMS"))
         or _setting_int(saved, "glossary_max_terms")
         or 8,
+        translation_cache_enabled=_optional_bool(
+            os.getenv("LMC_TRANSLATION_CACHE"),
+            _setting_bool(saved, "translation_cache_enabled", True),
+        ),
+        translation_cache_persist_enabled=_optional_bool(
+            os.getenv("LMC_TRANSLATION_CACHE_PERSIST"),
+            _setting_bool(saved, "translation_cache_persist_enabled", True),
+        ),
+        translation_cache_max_entries=_optional_int(os.getenv("LMC_TRANSLATION_CACHE_MAX_ENTRIES"))
+        or _setting_int(saved, "translation_cache_max_entries")
+        or 2000,
+        translation_cache_ttl_days=_optional_int(os.getenv("LMC_TRANSLATION_CACHE_TTL_DAYS"))
+        or _setting_int(saved, "translation_cache_ttl_days")
+        or 30,
         auto_summary_on_end=_optional_bool(
             os.getenv("LMC_AUTO_SUMMARY_ON_END"),
             _setting_bool(saved, "auto_summary_on_end", True),
@@ -461,6 +488,10 @@ def runtime_settings_payload(config: AppConfig) -> dict[str, Any]:
         "translation_streaming_enabled": config.translation_streaming_enabled,
         "structured_glossary_enabled": config.structured_glossary_enabled,
         "glossary_max_terms": config.glossary_max_terms,
+        "translation_cache_enabled": config.translation_cache_enabled,
+        "translation_cache_persist_enabled": config.translation_cache_persist_enabled,
+        "translation_cache_max_entries": config.translation_cache_max_entries,
+        "translation_cache_ttl_days": config.translation_cache_ttl_days,
         "auto_summary_on_end": config.auto_summary_on_end,
         "auto_export_on_end": config.auto_export_on_end,
         "speaker_aliases": dict(sorted(config.speaker_aliases.items())),

@@ -88,6 +88,10 @@ def test_runtime_settings_roundtrip(tmp_path) -> None:
         shutdown_wait_ms=2500,
         structured_glossary_enabled=False,
         glossary_max_terms=4,
+        translation_cache_enabled=False,
+        translation_cache_persist_enabled=False,
+        translation_cache_max_entries=32,
+        translation_cache_ttl_days=7,
         speaker_aliases={"Remote Participant": "Anna Schmidt"},
     )
 
@@ -106,6 +110,10 @@ def test_runtime_settings_roundtrip(tmp_path) -> None:
     assert loaded["shutdown_wait_ms"] == 2500
     assert loaded["structured_glossary_enabled"] is False
     assert loaded["glossary_max_terms"] == 4
+    assert loaded["translation_cache_enabled"] is False
+    assert loaded["translation_cache_persist_enabled"] is False
+    assert loaded["translation_cache_max_entries"] == 32
+    assert loaded["translation_cache_ttl_days"] == 7
     assert loaded["speaker_aliases"] == {"Remote Participant": "Anna Schmidt"}
 
 

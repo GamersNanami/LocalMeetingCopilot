@@ -7,6 +7,7 @@ import ollama
 
 from config import AppConfig, load_config
 from glossary import format_term_matches_for_prompt, load_glossary_terms, match_terms
+from translation_cache import TranslationCache, get_translation_cache, make_translation_cache_key
 
 TRANSLATOR_SYSTEM_PROMPT = """You are an expert bilingual meeting translator (German/English to Chinese).
 Translate the input spoken sentence into accurate, fluent, contextual Simplified Chinese.
@@ -54,12 +55,25 @@ LOCAL_FILLER_TRANSLATIONS: dict[str, str] = {
 
 
 class LLMRefiner:
-    def __init__(self, config: AppConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: AppConfig | None = None,
+        translation_cache: TranslationCache | None = None,
+    ) -> None:
         self.config = config or load_config()
         self.client = ollama.AsyncClient(
             host=self.config.ollama_host,
             timeout=self.config.ollama_timeout_seconds,
         )
+        self.translation_cache = translation_cache or get_translation_cache(
+            path=None if self.config.privacy_mode else self.config.translation_cache_file,
+            enabled=self.config.translation_cache_enabled,
+            persist=self.config.translation_cache_persist_enabled and not self.config.privacy_mode,
+            max_entries=self.config.translation_cache_max_entries,
+            ttl_seconds=self.config.translation_cache_ttl_days * 24 * 60 * 60,
+        )
+        self.last_translation_cache_hit = False
+        self.last_translation_cache_source = "llm"
         self.glossary_terms = (
             load_glossary_terms(
                 profile=self.config.meeting_profile,
@@ -108,17 +122,35 @@ class LLMRefiner:
         on_partial: Callable[[str], None] | None = None,
     ) -> str:
         text = original_text.strip()
+        self.last_translation_cache_hit = False
+        self.last_translation_cache_source = "llm"
         if not text:
             return ""
 
         local_translation = _local_filler_translation(text)
         if local_translation is not None:
+            self.last_translation_cache_source = "local"
             if on_partial:
                 on_partial(local_translation)
             return local_translation
 
         context = "\n".join((context_history or [])[-self.config.context_window_size :])
         glossary_prompt = self.glossary_prompt_for_text(text)
+        cache_key = make_translation_cache_key(
+            text=text,
+            profile=self.config.meeting_profile,
+            style=self.config.translation_style,
+            model=self.config.ollama_model,
+            language_code=language_code,
+            glossary_prompt=glossary_prompt,
+        )
+        cache_hit = self.translation_cache.get(cache_key)
+        if cache_hit is not None:
+            self.last_translation_cache_hit = True
+            self.last_translation_cache_source = "cache"
+            if on_partial:
+                on_partial(cache_hit.translated_text)
+            return cache_hit.translated_text
         base_system_prompt = (
             TRANSLATOR_FAST_SYSTEM_PROMPT
             if self.config.model_preset == "fast"
@@ -169,7 +201,10 @@ class LLMRefiner:
                     if on_partial:
                         on_partial("".join(chunks).strip())
                 translated = "".join(chunks).strip()
-                return translated or "（Ollama 未返回翻译，保留原文）"
+                if translated:
+                    self.translation_cache.put(cache_key, translated)
+                    return translated
+                return "（Ollama 未返回翻译，保留原文）"
 
             response = await self.client.generate(
                 model=self.config.ollama_model,
@@ -181,7 +216,10 @@ class LLMRefiner:
             return f"（Ollama 暂不可用，保留原文：{exc.__class__.__name__}）"
 
         translated = _response_text(response).strip()
-        return translated or "（Ollama 未返回翻译，保留原文）"
+        if translated:
+            self.translation_cache.put(cache_key, translated)
+            return translated
+        return "（Ollama 未返回翻译，保留原文）"
 
     async def healthcheck(self) -> str:
         try:
