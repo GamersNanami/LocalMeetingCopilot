@@ -28,6 +28,30 @@ Return Markdown only, with exactly these sections:
 # 3. 风险、未决问题与后续依赖"""
 
 
+LOCAL_FILLER_TRANSLATIONS: dict[str, str] = {
+    "ja": "嗯。",
+    "ja genau": "对，没错。",
+    "genau": "对。",
+    "okay": "好的。",
+    "ok": "好的。",
+    "alles klar": "好的，明白。",
+    "mhm": "嗯。",
+    "hm": "嗯。",
+    "äh": "嗯。",
+    "ähm": "嗯。",
+    "also": "那么。",
+    "yes": "是的。",
+    "yeah": "嗯，对。",
+    "right": "对。",
+    "sure": "好的。",
+    "um": "嗯。",
+    "uh": "嗯。",
+    "嗯": "嗯。",
+    "好": "好的。",
+    "对": "对。",
+}
+
+
 class LLMRefiner:
     def __init__(self, config: AppConfig | None = None) -> None:
         self.config = config or load_config()
@@ -77,6 +101,12 @@ class LLMRefiner:
         if not text:
             return ""
 
+        local_translation = _local_filler_translation(text)
+        if local_translation is not None:
+            if on_partial:
+                on_partial(local_translation)
+            return local_translation
+
         context = "\n".join((context_history or [])[-self.config.context_window_size :])
         base_system_prompt = (
             TRANSLATOR_FAST_SYSTEM_PROMPT
@@ -103,7 +133,7 @@ class LLMRefiner:
             )
         options = {
             "temperature": 0.05 if self.config.model_preset == "fast" else 0.1,
-            "num_predict": self.config.translation_num_predict,
+            "num_predict": _translation_num_predict_for(text, self.config.translation_num_predict),
         }
 
         try:
@@ -212,3 +242,27 @@ def _response_text(response: object) -> str:
     if isinstance(response, dict):
         return str(response.get("response", ""))
     return str(getattr(response, "response", ""))
+
+
+def _local_filler_translation(text: str) -> str | None:
+    normalised = _normalise_filler_text(text)
+    if not normalised:
+        return None
+    return LOCAL_FILLER_TRANSLATIONS.get(normalised)
+
+
+def _normalise_filler_text(text: str) -> str:
+    stripped = text.lower().strip()
+    stripped = stripped.replace("…", " ")
+    for char in ".,;:!?()[]{}\"'“”‘’":
+        stripped = stripped.replace(char, " ")
+    return " ".join(stripped.split())
+
+
+def _translation_num_predict_for(text: str, base_limit: int) -> int:
+    stripped = text.strip()
+    if len(stripped) <= 30:
+        return min(base_limit, 64)
+    if len(stripped) <= 80:
+        return min(base_limit, 96)
+    return base_limit
