@@ -186,6 +186,7 @@ class AppConfig(BaseModel):
     partial_min_audio_seconds: float = 1.05
     partial_asr_beam_size: int = 1
     partial_asr_vad_filter: bool = False
+    partial_skip_when_asr_busy: bool = True
     merge_short_sentences_enabled: bool = True
     merge_short_sentence_chars: int = 42
     merge_short_sentence_ms: int = 650
@@ -399,6 +400,10 @@ def load_config(
             os.getenv("LMC_PARTIAL_SUBTITLES"),
             _setting_bool(saved, "partial_subtitles_enabled", True),
         ),
+        partial_skip_when_asr_busy=_optional_bool(
+            os.getenv("LMC_PARTIAL_SKIP_WHEN_ASR_BUSY"),
+            _setting_bool(saved, "partial_skip_when_asr_busy", True),
+        ),
         warmup_enabled=_optional_bool(
             os.getenv("LMC_WARMUP"),
             _setting_bool(saved, "warmup_enabled", True),
@@ -438,6 +443,7 @@ def runtime_settings_payload(config: AppConfig) -> dict[str, Any]:
         "privacy_mode": config.privacy_mode,
         "debug_audio_enabled": config.debug_audio_enabled,
         "partial_subtitles_enabled": config.partial_subtitles_enabled,
+        "partial_skip_when_asr_busy": config.partial_skip_when_asr_busy,
         "warmup_enabled": config.warmup_enabled,
         "vad_mode": config.vad_mode,
         "vad_sensitivity": config.vad_sensitivity,

@@ -401,7 +401,12 @@ class MeetingAppController(QObject):
         if self._shutting_down:
             return
         self._apply_speaker_alias(draft)
-        if draft.track_type in self._partial_busy_tracks:
+        if should_skip_partial_transcription(
+            asr_busy_count=self._asr_busy_count,
+            partial_busy_tracks=self._partial_busy_tracks,
+            track_type=draft.track_type,
+            skip_when_asr_busy=self.config.partial_skip_when_asr_busy,
+        ):
             return
         self._partial_busy_tracks.add(draft.track_type)
         task = PartialTranscriptionTask(self.config, self.asr_engine, draft)
@@ -917,6 +922,18 @@ def is_german_clause_fragment(text: str, markers: tuple[str, ...]) -> bool:
     if stripped[-1:] not in {".", "!", "?"} and any(token in marker_set for token in tokens[-8:]):
         return True
     return False
+
+
+def should_skip_partial_transcription(
+    *,
+    asr_busy_count: int,
+    partial_busy_tracks: set[str],
+    track_type: str,
+    skip_when_asr_busy: bool,
+) -> bool:
+    if track_type in partial_busy_tracks:
+        return True
+    return skip_when_asr_busy and asr_busy_count > 0
 
 
 def _normalise_german_text(text: str) -> str:
