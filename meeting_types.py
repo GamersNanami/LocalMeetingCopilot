@@ -25,6 +25,7 @@ class TranscriptDraft:
     asr_completed_at: float | None = None
     translation_started_at: float | None = None
     translation_completed_at: float | None = None
+    translation_source: str = "llm"
 
 
 @dataclass(slots=True)
@@ -42,6 +43,7 @@ class TranscriptEntry:
     asr_completed_at: float | None = None
     translation_started_at: float | None = None
     translation_completed_at: float | None = None
+    translation_source: str = "llm"
     created_at: datetime = field(default_factory=datetime.now)
     entry_id: str = field(default_factory=lambda: uuid4().hex)
 
@@ -72,7 +74,11 @@ class TranscriptEntry:
         parts: list[str] = []
         if self.asr_latency_ms is not None:
             parts.append(f"ASR {self.asr_latency_ms / 1000:0.1f}s")
-        if self.translation_latency_ms is not None:
+        if self.translation_source == "cache":
+            parts.append("cache hit")
+        elif self.translation_source == "local":
+            parts.append("local")
+        elif self.translation_latency_ms is not None:
             parts.append(f"LLM {self.translation_latency_ms / 1000:0.1f}s")
         if self.total_latency_ms is not None:
             parts.append(f"total {self.total_latency_ms / 1000:0.1f}s")

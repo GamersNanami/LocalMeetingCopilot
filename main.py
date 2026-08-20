@@ -93,6 +93,7 @@ class TranslationTask(QRunnable):
                     language_code=self.draft.language_code,
                 )
             self.draft.translation_completed_at = time.perf_counter()
+            self.draft.translation_source = refiner.last_translation_cache_source
             _safe_emit(self.signals.translation_ready, self.draft, translated)
         except Exception as exc:
             _safe_emit(self.signals.error, f"Translation failed: {exc}")
@@ -558,6 +559,7 @@ class MeetingAppController(QObject):
             asr_completed_at=draft.asr_completed_at,
             translation_started_at=draft.translation_started_at,
             translation_completed_at=draft.translation_completed_at,
+            translation_source=draft.translation_source,
         )
         self.summarizer.add_entry(entry)
         self.overlay.update_final(entry)

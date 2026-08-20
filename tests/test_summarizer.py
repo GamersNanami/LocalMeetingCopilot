@@ -50,3 +50,30 @@ def test_transcript_entry_latency_label() -> None:
 
     assert "ASR 0.5s" in entry.latency_label
     assert "LLM 1.2s" in entry.to_markdown()
+
+
+def test_transcript_entry_latency_label_marks_cache_hit() -> None:
+    entry = TranscriptEntry(
+        speaker="Remote Participant",
+        original_text="Wir starten.",
+        chinese_translation="我们开始。",
+        captured_at=1.0,
+        translation_completed_at=1.1,
+        translation_source="cache",
+    )
+
+    assert "cache hit" in entry.latency_label
+    assert "total 0.1s" in entry.latency_label
+
+
+def test_transcript_entry_latency_label_marks_local_translation() -> None:
+    entry = TranscriptEntry(
+        speaker="Remote Participant",
+        original_text="Genau.",
+        chinese_translation="对。",
+        captured_at=1.0,
+        translation_completed_at=1.05,
+        translation_source="local",
+    )
+
+    assert "local" in entry.latency_label

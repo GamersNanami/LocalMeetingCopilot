@@ -146,9 +146,11 @@ export LMC_WARMUP=1
 export LMC_PARTIAL_SKIP_WHEN_ASR_BUSY=1
 export LMC_OLLAMA_TIMEOUT_SECONDS=20
 export LMC_SHUTDOWN_WAIT_MS=8000
+export LMC_TRANSLATION_CACHE=1
+export LMC_TRANSLATION_CACHE_PERSIST=1
 ```
 
-Warmup loads Whisper and pings Ollama shortly after startup. Common filler phrases such as `ja`, `genau`, `okay`, and `mhm` use local translations instead of waiting for Ollama. Short sentences automatically use smaller Ollama output limits. Shutdown waits briefly for background translation before exiting.
+Warmup loads Whisper and pings Ollama shortly after startup. Common filler phrases such as `ja`, `genau`, `okay`, and `mhm` use local translations instead of waiting for Ollama. Short sentences automatically use smaller Ollama output limits. Repeated final-sentence translations are cached; disk cache is stored at `logs/cache/translation_cache.jsonl` only when privacy mode is off. Shutdown waits briefly for background translation before exiting.
 
 Custom vocabulary lives in:
 
@@ -435,9 +437,11 @@ export LMC_WARMUP=1
 export LMC_PARTIAL_SKIP_WHEN_ASR_BUSY=1
 export LMC_OLLAMA_TIMEOUT_SECONDS=20
 export LMC_SHUTDOWN_WAIT_MS=8000
+export LMC_TRANSLATION_CACHE=1
+export LMC_TRANSLATION_CACHE_PERSIST=1
 ```
 
-Warmup 会在启动后提前加载 Whisper 并唤醒 Ollama。`ja`、`genau`、`okay`、`mhm` 这类常见语气词会走本地翻译，不再等待 Ollama。短句会自动使用更小的 Ollama 输出上限。退出时会短暂等待后台翻译收尾。
+Warmup 会在启动后提前加载 Whisper 并唤醒 Ollama。`ja`、`genau`、`okay`、`mhm` 这类常见语气词会走本地翻译，不再等待 Ollama。短句会自动使用更小的 Ollama 输出上限。重复的完整句翻译会缓存；隐私模式关闭时才会把磁盘缓存写到 `logs/cache/translation_cache.jsonl`。退出时会短暂等待后台翻译收尾。
 
 ## 自定义词库
 
