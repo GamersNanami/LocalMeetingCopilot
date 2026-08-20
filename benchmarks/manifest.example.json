@@ -1,0 +1,51 @@
+{
+  "name": "localmeetingcopilot-example",
+  "description": "Example benchmark manifest. Place downloaded/open audio files under benchmarks/audio/ and update paths/reference_text before running real benchmarks.",
+  "matrix": {
+    "profiles": ["de"],
+    "presets": ["fast", "balanced"],
+    "styles": ["meeting"],
+    "ollama_models": ["qwen2.5:3b-instruct"]
+  },
+  "samples": [
+    {
+      "id": "de_common_voice_placeholder",
+      "path": "audio/de_common_voice_sample.mp3",
+      "language": "de",
+      "speaker": "Remote Participant",
+      "reference_text": "",
+      "reference_translation": "",
+      "source": "Mozilla Common Voice Scripted Speech German",
+      "source_url": "https://mozilladatacollective.com/datasets/cmqim3xpi00t6nr07k0myqtkr",
+      "license": "CC0-1.0",
+      "notes": "Good first German ASR benchmark source. Do not try to identify speakers.",
+      "tags": ["german", "read-speech", "asr"]
+    },
+    {
+      "id": "de_fleurs_placeholder",
+      "path": "audio/de_fleurs_sample.wav",
+      "language": "de",
+      "speaker": "Remote Participant",
+      "reference_text": "",
+      "reference_translation": "",
+      "source": "Google FLEURS German",
+      "source_url": "https://huggingface.co/datasets/google/fleurs",
+      "license": "CC-BY-4.0",
+      "notes": "Good for controlled multilingual ASR/translation comparisons.",
+      "tags": ["german", "multilingual", "asr", "translation"]
+    },
+    {
+      "id": "en_librispeech_placeholder",
+      "path": "audio/en_librispeech_sample.flac",
+      "language": "en",
+      "speaker": "Remote Participant",
+      "reference_text": "",
+      "reference_translation": "",
+      "source": "LibriSpeech dev-clean or test-clean",
+      "source_url": "https://www.openslr.org/12",
+      "license": "CC-BY-4.0",
+      "notes": "Useful English ASR baseline, but cleaner than real meetings.",
+      "tags": ["english", "read-speech", "asr"]
+    }
+  ]
+}
