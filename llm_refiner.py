@@ -204,6 +204,9 @@ class LLMRefiner:
     def summarize_meeting_sync(self, transcript_markdown: str) -> str:
         return asyncio.run(self.summarize_meeting(transcript_markdown))
 
+    def healthcheck_sync(self) -> str:
+        return asyncio.run(self.healthcheck())
+
 
 def _response_text(response: object) -> str:
     if isinstance(response, dict):

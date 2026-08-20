@@ -30,6 +30,10 @@ class ASREngine:
             )
         return self._model
 
+    def warm_up(self) -> None:
+        with self._lock:
+            _ = self.model
+
     def transcribe_stream_chunk(self, audio: np.ndarray) -> str:
         if audio.size == 0:
             return ""

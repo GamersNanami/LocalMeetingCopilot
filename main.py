@@ -207,6 +207,27 @@ class PartialTranscriptionTask(QRunnable):
             _safe_emit(self.signals.finished)
 
 
+class WarmupTask(QRunnable):
+    def __init__(self, config: AppConfig, asr_engine: ASREngine) -> None:
+        super().__init__()
+        self.setAutoDelete(False)
+        self.config = config
+        self.asr_engine = asr_engine
+        self.signals = WorkerSignals()
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            _safe_emit(self.signals.status, "Warming up Whisper and Ollama")
+            self.asr_engine.warm_up()
+            ollama_status = LLMRefiner(self.config).healthcheck_sync()
+            _safe_emit(self.signals.status, f"Warmup ready | Ollama: {ollama_status}")
+        except Exception as exc:
+            _safe_emit(self.signals.status, f"Warmup skipped: {exc.__class__.__name__}")
+        finally:
+            _safe_emit(self.signals.finished)
+
+
 class MeetingAppController(QObject):
     def __init__(self, args: argparse.Namespace, config: AppConfig | None = None) -> None:
         super().__init__()
@@ -253,6 +274,8 @@ class MeetingAppController(QObject):
         app = QApplication.instance()
         if app is not None:
             app.aboutToQuit.connect(self.shutdown)
+        if self.config.warmup_enabled:
+            QTimer.singleShot(600, self._start_warmup)
 
     def show(self) -> None:
         self.dashboard.show()
@@ -359,6 +382,13 @@ class MeetingAppController(QObject):
         task.signals.draft_ready.connect(self._on_draft)
         task.signals.error.connect(self._set_status)
         task.signals.finished.connect(self._on_wav_finished)
+        self._start_task(task)
+
+    def _start_warmup(self) -> None:
+        if self._shutting_down:
+            return
+        task = WarmupTask(self.config, self.asr_engine)
+        task.signals.status.connect(self._set_status)
         self._start_task(task)
 
     @Slot(str, str)
