@@ -517,7 +517,11 @@ class MeetingAppController(QObject):
         self._translation_queue.clear()
         self._auto_summary_pending = False
         self.thread_pool.clear()
-        self.thread_pool.waitForDone()
+        wait_ms = max(0, int(self.config.shutdown_wait_ms))
+        if wait_ms:
+            self.thread_pool.waitForDone(wait_ms)
+        else:
+            self.thread_pool.waitForDone()
         app = QApplication.instance()
         if app is not None:
             app.processEvents()

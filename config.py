@@ -237,6 +237,7 @@ class AppConfig(BaseModel):
     capture_remote_enabled: bool = True
     latency_diagnostics_enabled: bool = True
     warmup_enabled: bool = True
+    shutdown_wait_ms: int = 8000
     speaker_aliases: dict[str, str] = Field(default_factory=dict)
 
     profile_terms_dir: Path = Field(default_factory=lambda: _PROJECT_ROOT / "profiles")
@@ -408,6 +409,9 @@ def load_config(
             os.getenv("LMC_WARMUP"),
             _setting_bool(saved, "warmup_enabled", True),
         ),
+        shutdown_wait_ms=_optional_int(os.getenv("LMC_SHUTDOWN_WAIT_MS"))
+        or _setting_int(saved, "shutdown_wait_ms")
+        or 8000,
         vad_mode=normalise_vad_mode(os.getenv("LMC_VAD_MODE") or _setting_str(saved, "vad_mode", "auto")),
         speaker_aliases=_setting_speaker_aliases(saved),
     )
@@ -445,6 +449,7 @@ def runtime_settings_payload(config: AppConfig) -> dict[str, Any]:
         "partial_subtitles_enabled": config.partial_subtitles_enabled,
         "partial_skip_when_asr_busy": config.partial_skip_when_asr_busy,
         "warmup_enabled": config.warmup_enabled,
+        "shutdown_wait_ms": config.shutdown_wait_ms,
         "vad_mode": config.vad_mode,
         "vad_sensitivity": config.vad_sensitivity,
         "translation_streaming_enabled": config.translation_streaming_enabled,
