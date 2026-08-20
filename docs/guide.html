@@ -282,8 +282,12 @@ python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
           <pre><code>python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
           <p>Partial subtitles show temporary ASR text while someone is speaking. Final subtitles are translated after the sentence is cut and refined. Chinese translation streams into the overlay while Ollama is still generating.</p>
           <p>When the meeting ends, the dashboard shows an instant local summary preview first, then replaces it with the Ollama-refined summary. German clause fragments around <code>weil</code>, <code>dass</code>, <code>wenn</code>, and <code>obwohl</code> are held briefly for cleaner translations.</p>
-          <p>Add names, company terms, project names, and acronyms to:</p>
-          <pre><code>profiles/custom_terms.txt</code></pre>
+          <p>Add names, company terms, project names, and acronyms to <code>profiles/custom_terms.txt</code>. Use <code>profiles/terms.yaml</code> for precise translation terms with variants, Chinese targets, categories, and priorities. Only matched top terms are injected into each translation prompt.</p>
+          <pre><code>- source: Kundentabelle
+  variants: ["Kunden Tabelle", "customer table"]
+  zh: 客户表
+  category: data
+  priority: high</code></pre>
           <p>Optional Silero VAD is used automatically when installed; otherwise the built-in energy VAD remains active.</p>
           <pre><code>python -m pip install -r requirements-vad.txt
 export LMC_VAD_MODE=auto</code></pre>
@@ -296,8 +300,12 @@ export LMC_VAD_MODE=auto</code></pre>
           <pre><code>python run.py --mac-live --profile de --preset fast --style meeting</code></pre>
           <p>说话中会先显示 partial 临时字幕，完整句切好后再进入精修翻译。Ollama 生成中文时会流式更新到悬浮窗。</p>
           <p>会议结束后，Dashboard 会先显示本地规则 summary，再用 Ollama 精修版替换。遇到 <code>weil</code>、<code>dass</code>、<code>wenn</code>、<code>obwohl</code> 等德语从句片段时，会短暂等待上下文以改善中文翻译。</p>
-          <p>人名、公司名、项目名、缩写放到这里：</p>
-          <pre><code>profiles/custom_terms.txt</code></pre>
+          <p>人名、公司名、项目名、缩写可以放到 <code>profiles/custom_terms.txt</code>。需要固定中文译法的术语放到 <code>profiles/terms.yaml</code>，支持 variants、中文目标、category 和 priority。每句话只会注入命中的 top terms。</p>
+          <pre><code>- source: Kundentabelle
+  variants: ["Kunden Tabelle", "customer table"]
+  zh: 客户表
+  category: data
+  priority: high</code></pre>
           <p>如果安装了 Silero VAD，默认会自动使用；没有安装时会继续使用内置 energy VAD。</p>
           <pre><code>python -m pip install -r requirements-vad.txt
 export LMC_VAD_MODE=auto</code></pre>

@@ -154,9 +154,20 @@ Custom vocabulary lives in:
 
 ```text
 profiles/custom_terms.txt
+profiles/terms.yaml
 ```
 
-Add company names, people, project names, acronyms, and domain terms there, one per line. They are injected into ASR prompts, ASR hotwords, and the translation prompt.
+Add company names, people, project names, acronyms, and plain ASR terms to `profiles/custom_terms.txt`, one per line. For precise translation terminology, use `profiles/terms.yaml`:
+
+```yaml
+- source: Kundentabelle
+  variants: ["Kunden Tabelle", "customer table"]
+  zh: 客户表
+  category: data
+  priority: high
+```
+
+The `.txt` terms still help ASR prompts and hotwords. The structured YAML glossary is matched per sentence, and only the most relevant top terms are injected into the translation prompt.
 
 ## Benchmark Harness
 
@@ -434,9 +445,20 @@ Warmup 会在启动后提前加载 Whisper 并唤醒 Ollama。`ja`、`genau`、`
 
 ```text
 profiles/custom_terms.txt
+profiles/terms.yaml
 ```
 
-可以把公司名、人名、项目名、缩写、领域术语一行一个写进去。它们会被注入 ASR prompt、ASR hotwords 和翻译 prompt。
+公司名、人名、项目名、缩写、普通 ASR 术语可以一行一个写进 `profiles/custom_terms.txt`。需要精确中文翻译的术语写进 `profiles/terms.yaml`：
+
+```yaml
+- source: Kundentabelle
+  variants: ["Kunden Tabelle", "customer table"]
+  zh: 客户表
+  category: data
+  priority: high
+```
+
+`.txt` 词库继续用于 ASR prompt 和 hotwords。结构化 YAML 词库会按每句话动态匹配，只把最相关的 top terms 注入翻译 prompt。
 
 ## Benchmark Harness
 

@@ -1,0 +1,52 @@
+- source: Kundentabelle
+  variants: ["Kunden Tabelle", "customer table"]
+  zh: 客户表
+  category: data
+  priority: high
+  profiles: ["de", "de-en"]
+
+- source: Datenqualität
+  variants: ["Datenqualitaet", "data quality"]
+  zh: 数据质量
+  category: data
+  priority: high
+  profiles: ["de", "de-en"]
+
+- source: Datenpipeline
+  variants: ["data pipeline"]
+  zh: 数据管道
+  category: data
+  priority: high
+  profiles: ["de", "de-en"]
+
+- source: Rollout
+  variants: ["deployment", "go-live"]
+  zh: 发布
+  category: release
+  priority: high
+
+- source: Freigabe
+  variants: ["approval", "sign-off"]
+  zh: 批准
+  category: process
+  priority: medium
+  profiles: ["de", "de-en"]
+
+- source: Abhängigkeit
+  variants: ["Abhaengigkeit", "dependency"]
+  zh: 依赖项
+  category: planning
+  priority: medium
+  profiles: ["de", "de-en"]
+
+- source: Blocker
+  variants: ["blocking issue"]
+  zh: 阻塞问题
+  category: risk
+  priority: high
+
+- source: Action item
+  variants: ["Aufgabe", "Massnahme", "Maßnahme"]
+  zh: 待办事项
+  category: task
+  priority: medium
