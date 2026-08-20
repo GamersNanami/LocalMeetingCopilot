@@ -158,6 +158,18 @@ profiles/custom_terms.txt
 
 Add company names, people, project names, acronyms, and domain terms there, one per line. They are injected into ASR prompts, ASR hotwords, and the translation prompt.
 
+## Benchmark Harness
+
+Put open benchmark clips under `benchmarks/audio/`, then copy and edit `benchmarks/manifest.example.json` into `benchmarks/manifest.local.json`.
+
+```bash
+python scripts/benchmark_pipeline.py --manifest benchmarks/manifest.local.json --dry-run
+python scripts/benchmark_pipeline.py --manifest benchmarks/manifest.local.json --skip-llm
+python scripts/benchmark_pipeline.py --manifest benchmarks/manifest.local.json
+```
+
+The harness writes `results.json`, `results.csv`, and `report.md` under `logs/benchmarks/YYYYMMDD-HHMMSS/`. See `benchmarks/datasets.md` for recommended open German/English sources such as Common Voice, FLEURS, LibriSpeech, and MLS.
+
 ## Optional Silero VAD
 
 The default VAD mode is `auto`: LocalMeetingCopilot tries Silero VAD when `silero-vad` is installed and falls back to the built-in energy VAD otherwise.
@@ -425,6 +437,18 @@ profiles/custom_terms.txt
 ```
 
 可以把公司名、人名、项目名、缩写、领域术语一行一个写进去。它们会被注入 ASR prompt、ASR hotwords 和翻译 prompt。
+
+## Benchmark Harness
+
+把公开 benchmark 音频放到 `benchmarks/audio/`，然后复制并修改 `benchmarks/manifest.example.json` 为 `benchmarks/manifest.local.json`。
+
+```bash
+python scripts/benchmark_pipeline.py --manifest benchmarks/manifest.local.json --dry-run
+python scripts/benchmark_pipeline.py --manifest benchmarks/manifest.local.json --skip-llm
+python scripts/benchmark_pipeline.py --manifest benchmarks/manifest.local.json
+```
+
+脚本会把 `results.json`、`results.csv` 和 `report.md` 输出到 `logs/benchmarks/YYYYMMDD-HHMMSS/`。推荐数据源见 `benchmarks/datasets.md`，包括 Common Voice、FLEURS、LibriSpeech 和 MLS。
 
 ## 可选 Silero VAD
 
