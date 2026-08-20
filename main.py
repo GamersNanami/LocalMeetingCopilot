@@ -896,6 +896,11 @@ def run_app(args: argparse.Namespace) -> int:
 
     signal.signal(signal.SIGINT, request_quit)
     signal.signal(signal.SIGTERM, request_quit)
+    signal_timer = QTimer()
+    signal_timer.setInterval(200)
+    signal_timer.timeout.connect(lambda: None)
+    signal_timer.start()
+    app.setProperty("python_signal_timer", signal_timer)
 
     controller = MeetingAppController(args, config)
     app.setProperty("meeting_controller", controller)
